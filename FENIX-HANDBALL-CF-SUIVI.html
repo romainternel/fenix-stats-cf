@@ -1335,17 +1335,17 @@
         .nd-clickable { cursor: pointer; text-decoration: underline; text-decoration-color: #CBD5E1; text-underline-offset: 2px; }
         .nd-clickable:hover { color: var(--fenix-accent); }
 
-        /* Note Graph — overlay modal */
+        /* Graph — overlay modal (Joueurs + GB combiné) */
         #page-notegraph { padding: 0; cursor: pointer; }
         #page-notegraph.active { display: flex !important; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,36,99,0.55); z-index: 500; align-items: center; justify-content: center; }
         .ng-page-layout { width: 88vw; height: 84vh; background: white; border-radius: 16px; cursor: default; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.3); }
-        .ng-header { display: flex; align-items: center; gap: 1.5rem; background: var(--fenix-blue); padding: 0.5rem 1rem; flex-shrink: 0; }
+        .ng-header { display: flex; align-items: center; gap: 1.5rem; background: var(--fenix-blue); padding: 0.5rem 1rem; flex-shrink: 0; flex-wrap: wrap; }
+        .ng-charts-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .ng-chart-section { flex: 1; min-height: 0; position: relative; padding: 0.4rem 1rem 0.8rem; }
+        .ng-chart-section + .ng-chart-section { border-top: 1px solid #E2E8F0; }
         .ng-chart-wrapper { flex: 1; min-height: 0; position: relative; padding: 0.5rem 1rem 1rem; }
         .ng-shortcut { background: none; border: none; cursor: pointer; font-size: 0.82rem; opacity: 0.55; transition: opacity 0.15s; padding: 0 0 0 0.3rem; line-height: 1; }
         .ng-shortcut:hover { opacity: 1; }
-        /* Graph GB — overlay modal (même pattern) */
-        #page-gbgraph { padding: 0; cursor: pointer; }
-        #page-gbgraph.active { display: flex !important; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,36,99,0.55); z-index: 500; align-items: center; justify-content: center; }
 
         /* Modal */
         .modal-overlay {
@@ -1512,8 +1512,7 @@
             <button class="nav-btn" data-page="analyse">🔍 Analyse</button>
             <button class="nav-btn" data-page="joueurs">👥 Joueurs</button>
             <button class="nav-btn" data-page="notes">⭐ Notes</button>
-            <button class="nav-btn" data-page="notegraph">📈 Note Graph</button>
-            <button class="nav-btn" data-page="gbgraph">📈 Graph GB</button>
+            <button class="nav-btn" data-page="notegraph">📈 Graphiques</button>
             <button class="nav-btn" data-page="gardiens">🥅 Gardiens</button>
             <button class="nav-btn" data-page="impact">🎯 Impact</button>
         </nav>
@@ -2146,37 +2145,31 @@
             </div>
         </div>
 
-        <!-- Note Graph Page -->
+        <!-- Graphiques combinés : Joueur + GB -->
         <div class="page" id="page-notegraph" onclick="ngGoBack()">
             <div class="ng-page-layout" onclick="event.stopPropagation()">
                 <div class="ng-header">
                     <div class="filter-group" style="margin:0">
                         <label style="color:white;font-weight:600;">Joueur</label>
                         <select id="ng-joueur" onchange="updateNoteGraph()">
-                            <option value="">Sélectionner un joueur</option>
+                            <option value="">— Joueur —</option>
                         </select>
                     </div>
-                </div>
-                <div class="ng-chart-wrapper">
-                    <canvas id="ng-canvas"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Graph GB Page — overlay modal -->
-        <div class="page" id="page-gbgraph" onclick="gbGraphGoBack()">
-            <div class="ng-page-layout" onclick="event.stopPropagation()">
-                <div class="ng-header">
                     <div class="filter-group" style="margin:0">
                         <label style="color:white;font-weight:600;">Gardien</label>
                         <select id="gbg-gardien" onchange="updateGbGraph()">
-                            <option value="">Sélectionner un gardien</option>
+                            <option value="">— Gardien —</option>
                         </select>
                     </div>
                     <span style="color:rgba(255,255,255,0.5);font-size:0.78rem;margin-left:auto">Cliquer en dehors pour fermer</span>
                 </div>
-                <div class="ng-chart-wrapper">
-                    <canvas id="gbg-canvas"></canvas>
+                <div class="ng-charts-body">
+                    <div class="ng-chart-section" id="ng-section-joueur" style="display:none">
+                        <canvas id="ng-canvas"></canvas>
+                    </div>
+                    <div class="ng-chart-section" id="ng-section-gb" style="display:none">
+                        <canvas id="gbg-canvas"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3043,8 +3036,7 @@ let _effInfoPoste = null;
                 case 'analyse': updateAnalysePage(); break;
                 case 'joueurs': updateJoueursPage(); break;
                 case 'notes': updateNotesPage(); break;
-                case 'notegraph': _ngFromDetail = null; updateNoteGraph(); break;
-                case 'gbgraph': _gbgFromNotes = null; updateGbGraph(); break;
+                case 'notegraph': _ngFromDetail = null; updateNoteGraph(); updateGbGraph(); break;
                 case 'gardiens': updateGardiensPage(); break;
                 case 'impact': updateImpactPage(); break;
             }
@@ -4594,6 +4586,8 @@ let _effInfoPoste = null;
         function updateNoteGraph() {
             const joueur = document.getElementById('ng-joueur').value;
             if (noteGraphChart) { noteGraphChart.destroy(); noteGraphChart = null; }
+            const sec = document.getElementById('ng-section-joueur');
+            if (sec) sec.style.display = joueur && DATA.length > 0 ? 'block' : 'none';
             if (!joueur || DATA.length === 0) return;
 
             const matchData = {};
@@ -4785,25 +4779,18 @@ let _effInfoPoste = null;
         function goToGbGraph(gardien) {
             _gbgFromNotes = gardien;
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector('.nav-btn[data-page="gbgraph"]').classList.add('active');
+            document.querySelector('.nav-btn[data-page="notegraph"]').classList.add('active');
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-gbgraph').classList.add('active');
+            document.getElementById('page-notegraph').classList.add('active');
             document.getElementById('gbg-gardien').value = gardien;
             updateGbGraph();
-        }
-
-        function gbGraphGoBack() {
-            _gbgFromNotes = null;
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelector('.nav-btn[data-page="notes"]').classList.add('active');
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-notes').classList.add('active');
-            updateNotesPage();
         }
 
         function updateGbGraph() {
             const gardien = document.getElementById('gbg-gardien').value;
             if (gbGraphChart) { gbGraphChart.destroy(); gbGraphChart = null; }
+            const sec = document.getElementById('ng-section-gb');
+            if (sec) sec.style.display = gardien && DATA.length > 0 ? 'block' : 'none';
             if (!gardien || DATA.length === 0) return;
 
             const matchData = {};
