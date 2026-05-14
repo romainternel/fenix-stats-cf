@@ -2752,7 +2752,7 @@ let _effInfoPoste = null;
                 }
             });
             
-            const playerFilters = ['filter-impact-joueur', 'filter-note-joueur', 'ng-joueur'];
+            const playerFilters = ['filter-impact-joueur', 'filter-note-joueur'];
             playerFilters.forEach(id => {
                 const sel = document.getElementById(id);
                 if (sel) {
@@ -2760,6 +2760,20 @@ let _effInfoPoste = null;
                     JOUEURS_FENIX.forEach(j => sel.innerHTML += `<option value="${j}">${j}</option>`);
                 }
             });
+
+            // ng-joueur : exclure les gardiens (détectés via tirs adverses + GARDIENS_FENIX)
+            const ngJoueurSel = document.getElementById('ng-joueur');
+            if (ngJoueurSel) {
+                const gardiensData = new Set(
+                    DATA.filter(r => r[COLS.club] !== 'FENIX' && r[COLS.gardien])
+                        .map(r => (r[COLS.gardien] || '').toString().trim())
+                        .filter(Boolean)
+                );
+                GARDIENS_FENIX.forEach(g => gardiensData.add(g));
+                ngJoueurSel.innerHTML = '<option value="">— Joueur —</option>';
+                JOUEURS_FENIX.filter(j => !gardiensData.has(j))
+                    .forEach(j => ngJoueurSel.innerHTML += `<option value="${j}">${j}</option>`);
+            }
             
             const gardienFilter = document.getElementById('filter-gardien');
             if (gardienFilter) {
