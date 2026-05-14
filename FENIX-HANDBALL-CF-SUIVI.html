@@ -1343,6 +1343,9 @@
         .ng-chart-wrapper { flex: 1; min-height: 0; position: relative; padding: 0.5rem 1rem 1rem; }
         .ng-shortcut { background: none; border: none; cursor: pointer; font-size: 0.82rem; opacity: 0.55; transition: opacity 0.15s; padding: 0 0 0 0.3rem; line-height: 1; }
         .ng-shortcut:hover { opacity: 1; }
+        /* Graph GB — overlay modal (même pattern) */
+        #page-gbgraph { padding: 0; cursor: pointer; }
+        #page-gbgraph.active { display: flex !important; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,36,99,0.55); z-index: 500; align-items: center; justify-content: center; }
 
         /* Modal */
         .modal-overlay {
@@ -1510,6 +1513,7 @@
             <button class="nav-btn" data-page="joueurs">👥 Joueurs</button>
             <button class="nav-btn" data-page="notes">⭐ Notes</button>
             <button class="nav-btn" data-page="notegraph">📈 Note Graph</button>
+            <button class="nav-btn" data-page="gbgraph">📈 Graph GB</button>
             <button class="nav-btn" data-page="gardiens">🥅 Gardiens</button>
             <button class="nav-btn" data-page="impact">🎯 Impact</button>
         </nav>
@@ -2079,6 +2083,41 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Section Notes Gardiens -->
+            <div class="section" style="margin-top:1.5rem;">
+                <div class="section-header">
+                    <h2 class="section-title">🧤 Notes Gardiens</h2>
+                </div>
+
+                <!-- Légende difficulté -->
+                <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;font-size:0.75rem;">
+                    <span style="background:#FEE2E2;color:#991B1B;border-radius:6px;padding:0.2rem 0.5rem;font-weight:600;">Très difficile · Arrêt +3 / But -1</span>
+                    <span style="background:#FFEDD5;color:#92400E;border-radius:6px;padding:0.2rem 0.5rem;font-weight:600;">Difficile · Arrêt +2–3 / But -1</span>
+                    <span style="background:#FEF3C7;color:#78350F;border-radius:6px;padding:0.2rem 0.5rem;font-weight:600;">Moyen · Arrêt +2 / But -1</span>
+                    <span style="background:#D1FAE5;color:#065F46;border-radius:6px;padding:0.2rem 0.5rem;font-weight:600;">Facile · Arrêt +1 / But -2</span>
+                    <span style="background:#F1F5F9;color:#475569;border-radius:6px;padding:0.2rem 0.5rem;font-weight:600;">Très facile · Arrêt +1 / But -3</span>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Gardien</th>
+                                <th>Arrêts</th>
+                                <th>Buts enc.</th>
+                                <th>% Arrêts</th>
+                                <th>Score Arrêts</th>
+                                <th>Score Buts</th>
+                                <th>Score Total</th>
+                                <th>/match</th>
+                            </tr>
+                        </thead>
+                        <tbody id="notes-gb-table">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- Note Graph Page -->
@@ -2094,6 +2133,24 @@
                 </div>
                 <div class="ng-chart-wrapper">
                     <canvas id="ng-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph GB Page — overlay modal -->
+        <div class="page" id="page-gbgraph" onclick="gbGraphGoBack()">
+            <div class="ng-page-layout" onclick="event.stopPropagation()">
+                <div class="ng-header">
+                    <div class="filter-group" style="margin:0">
+                        <label style="color:white;font-weight:600;">Gardien</label>
+                        <select id="gbg-gardien" onchange="updateGbGraph()">
+                            <option value="">Sélectionner un gardien</option>
+                        </select>
+                    </div>
+                    <span style="color:rgba(255,255,255,0.5);font-size:0.78rem;margin-left:auto">Cliquer en dehors pour fermer</span>
+                </div>
+                <div class="ng-chart-wrapper">
+                    <canvas id="gbg-canvas"></canvas>
                 </div>
             </div>
         </div>
@@ -2690,6 +2747,18 @@ let _effInfoPoste = null;
                 gardienFilter.innerHTML = '<option value="">Tous les gardiens</option>';
                 GARDIENS_FENIX.forEach(g => gardienFilter.innerHTML += `<option value="${g}">${g}</option>`);
             }
+
+            // Graph GB : gardiens détectés dans les tirs adverses
+            const gbgSelect = document.getElementById('gbg-gardien');
+            if (gbgSelect) {
+                const gardiensDansData = [...new Set(
+                    DATA.filter(r => r[COLS.club] !== 'FENIX' && r[COLS.gardien])
+                        .map(r => (r[COLS.gardien] || '').toString().trim())
+                        .filter(Boolean)
+                )].sort();
+                gbgSelect.innerHTML = '<option value="">Sélectionner un gardien</option>';
+                gardiensDansData.forEach(g => gbgSelect.innerHTML += `<option value="${g}">${g}</option>`);
+            }
             
             const zoneFilter = document.getElementById('filter-impact-zone');
             if (zoneFilter) {
@@ -2949,6 +3018,7 @@ let _effInfoPoste = null;
                 case 'joueurs': updateJoueursPage(); break;
                 case 'notes': updateNotesPage(); break;
                 case 'notegraph': _ngFromDetail = null; updateNoteGraph(); break;
+                case 'gbgraph': _gbgFromNotes = null; updateGbGraph(); break;
                 case 'gardiens': updateGardiensPage(); break;
                 case 'impact': updateImpactPage(); break;
             }
@@ -4276,6 +4346,25 @@ let _effInfoPoste = null;
         const ACTIONS_DEF_PLUS  = ['Duel gagné déf', 'Contre +', 'Récup', 'Intercep', 'Dissua', 'Entraide +', 'Impair +', 'Contournement pivot +'];
         const ACTIONS_DEF_MOINS = ['Duel perdu', '2 min', 'Entraide -', 'Impair -', 'Sortie de bloc -', 'Contre -', 'Inactif', 'Hs/Répart/Changmt', 'Toucher -', 'Contournement pivot -', 'replis -'];
 
+        const GB_ZONE_WEIGHTS = {
+            '6m central G':  { diff: 'Très difficile', arret: 3, but: -1 },
+            '6m central D':  { diff: 'Très difficile', arret: 3, but: -1 },
+            '7m':            { diff: 'Difficile',       arret: 3, but: -1 },
+            '6m ext G':      { diff: 'Difficile',       arret: 2, but: -1 },
+            '6m ext D':      { diff: 'Difficile',       arret: 2, but: -1 },
+            '6m ail G':      { diff: 'Moyen',           arret: 2, but: -1 },
+            '6m ail D':      { diff: 'Moyen',           arret: 2, but: -1 },
+            '6-9 central G': { diff: 'Moyen',           arret: 2, but: -1 },
+            '6-9 central D': { diff: 'Moyen',           arret: 2, but: -1 },
+            '6-9 ext G':     { diff: 'Facile',          arret: 1, but: -2 },
+            '6-9 ext D':     { diff: 'Facile',          arret: 1, but: -2 },
+            '9m Int G':      { diff: 'Facile',          arret: 1, but: -2 },
+            '9m Int D':      { diff: 'Facile',          arret: 1, but: -2 },
+            '9m ext G':      { diff: 'Très facile',     arret: 1, but: -3 },
+            '9m ext D':      { diff: 'Très facile',     arret: 1, but: -3 },
+            'But à but':     { diff: null,              arret: 0, but:  0 },
+        };
+
         function isPositiveATT(action) {
             return ACTIONS_ATT_PLUS.some(a => action.includes(a));
         }
@@ -4355,6 +4444,76 @@ let _effInfoPoste = null;
                         <td class="nd-clickable" style="color:var(--fenix-danger)" onclick="openNotesDetail('${j}','defMoins')">-${notes.defMoins}</td>
                         <td class="nd-clickable" onclick="openNotesDetail('${j}','def')"><strong>${noteDef >= 0 ? '+' : ''}${noteDef}</strong></td>
                         <td class="nd-clickable" onclick="openNotesDetail('${j}','all')"><strong style="color:${noteTotal >= 0 ? 'var(--fenix-success)' : 'var(--fenix-danger)'};font-size:1.1em">${noteTotal >= 0 ? '+' : ''}${noteTotal}</strong></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+        }
+
+        function calculateGardienNotes(matchFilter) {
+            const gbNotes = {};
+            const selectedMatchesList = matchFilter ? matchFilter.split(',') : [];
+
+            DATA.forEach(row => {
+                if (row[COLS.club] === 'FENIX') return;
+                if (selectedMatchesList.length > 0 && !selectedMatchesList.includes(row[COLS.rencontre])) return;
+
+                const gardien = (row[COLS.gardien] || '').toString().trim();
+                if (!gardien) return;
+
+                const finalite = (row[COLS.finalite] || '').toString();
+                const resultat  = (row[COLS.resultat]  || '').toString();
+                const isArret = finalite === 'Tir arrêté';
+                const isBut   = resultat === 'But';
+                if (!isArret && !isBut) return;
+
+                if (!gbNotes[gardien]) gbNotes[gardien] = { arrets: 0, buts: 0, scoreArrets: 0, scoreButs: 0, matchSet: new Set() };
+
+                const match = row[COLS.rencontre];
+                if (match) gbNotes[gardien].matchSet.add(match);
+
+                const zone = (row[COLS.field_position] || '').toString().trim();
+                const w = GB_ZONE_WEIGHTS[zone] || { arret: 1, but: -1 };
+
+                if (isArret) { gbNotes[gardien].arrets++;  gbNotes[gardien].scoreArrets += w.arret; }
+                if (isBut)   { gbNotes[gardien].buts++;    gbNotes[gardien].scoreButs   += w.but;   }
+            });
+
+            return gbNotes;
+        }
+
+        function renderGardienNotesTable(gbNotes, tbodyId) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const entries = Object.entries(gbNotes);
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:1rem">Aucune donnée gardien</td></tr>';
+                return;
+            }
+
+            const sign = v => (v >= 0 ? '+' : '') + v;
+
+            entries
+                .sort((a, b) => (b[1].scoreArrets + b[1].scoreButs) - (a[1].scoreArrets + a[1].scoreButs))
+                .forEach(([gardien, n]) => {
+                    const tirsCadres = n.arrets + n.buts;
+                    const pct = tirsCadres > 0 ? Math.round(n.arrets / tirsCadres * 100) : 0;
+                    const scoreTotal = n.scoreArrets + n.scoreButs;
+                    const nbMatchs = n.matchSet.size || 1;
+                    const parMatch = (scoreTotal / nbMatchs).toFixed(1);
+
+                    const g = gardien.replace(/'/g, "\\'");
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${gardien}</strong><button class="ng-shortcut" onclick="goToGbGraph('${g}')" title="Voir le graphe">📈</button></td>
+                        <td style="color:var(--fenix-success);font-weight:600">${n.arrets}</td>
+                        <td style="color:var(--fenix-danger);font-weight:600">${n.buts}</td>
+                        <td>${pct}%</td>
+                        <td style="color:var(--fenix-success)">${sign(n.scoreArrets)}</td>
+                        <td style="color:var(--fenix-danger)">${sign(n.scoreButs)}</td>
+                        <td><strong style="color:${scoreTotal >= 0 ? 'var(--fenix-success)' : 'var(--fenix-danger)'};font-size:1.1em">${sign(scoreTotal)}</strong></td>
+                        <td style="color:#64748b">${parseFloat(parMatch) >= 0 ? '+' : ''}${parMatch}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -4515,12 +4674,128 @@ let _effInfoPoste = null;
             });
         }
 
+        let gbGraphChart = null;
+        let _gbgFromNotes = null;
+
+        function goToGbGraph(gardien) {
+            _gbgFromNotes = gardien;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.nav-btn[data-page="gbgraph"]').classList.add('active');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-gbgraph').classList.add('active');
+            document.getElementById('gbg-gardien').value = gardien;
+            updateGbGraph();
+        }
+
+        function gbGraphGoBack() {
+            _gbgFromNotes = null;
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.nav-btn[data-page="notes"]').classList.add('active');
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-notes').classList.add('active');
+            updateNotesPage();
+        }
+
+        function updateGbGraph() {
+            const gardien = document.getElementById('gbg-gardien').value;
+            if (gbGraphChart) { gbGraphChart.destroy(); gbGraphChart = null; }
+            if (!gardien || DATA.length === 0) return;
+
+            const matchData = {};
+            MATCHS.forEach(m => matchData[m] = { arrets: 0, buts: 0, score: 0 });
+
+            DATA.forEach(row => {
+                if (row[COLS.club] === 'FENIX') return;
+                if ((row[COLS.gardien] || '').toString().trim() !== gardien) return;
+                const m = row[COLS.rencontre];
+                if (!matchData[m]) return;
+
+                const finalite = (row[COLS.finalite] || '').toString();
+                const resultat  = (row[COLS.resultat]  || '').toString();
+                const isArret = finalite === 'Tir arrêté';
+                const isBut   = resultat === 'But';
+                if (!isArret && !isBut) return;
+
+                const zone = (row[COLS.field_position] || '').toString().trim();
+                const w = GB_ZONE_WEIGHTS[zone] || { arret: 1, but: -1 };
+
+                if (isArret) { matchData[m].arrets++; matchData[m].score += w.arret; }
+                if (isBut)   { matchData[m].buts++;   matchData[m].score += w.but;   }
+            });
+
+            const played = MATCHS.filter(m => matchData[m].arrets + matchData[m].buts > 0);
+            if (played.length === 0) return;
+
+            const arrets  = played.map(m => matchData[m].arrets);
+            const scores  = played.map(m => matchData[m].score);
+            const pcts    = played.map(m => {
+                const t = matchData[m].arrets + matchData[m].buts;
+                return t > 0 ? Math.round(matchData[m].arrets / t * 100) : 0;
+            });
+
+            const ctx = document.getElementById('gbg-canvas').getContext('2d');
+            gbGraphChart = new Chart(ctx, {
+                data: {
+                    labels: played,
+                    datasets: [
+                        {
+                            type: 'bar', label: 'Arrêts', data: arrets, yAxisID: 'y',
+                            backgroundColor: 'rgba(16,185,129,0.65)', borderColor: '#10B981', borderWidth: 1, order: 3,
+                        },
+                        {
+                            type: 'line', label: 'Score Total', data: scores, yAxisID: 'y',
+                            borderColor: '#1E3A5F', backgroundColor: '#1E3A5F',
+                            borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1E3A5F',
+                            tension: 0.3, order: 1,
+                        },
+                        {
+                            type: 'line', label: '% Arrêts', data: pcts, yAxisID: 'y1',
+                            borderColor: '#0EA5E9', backgroundColor: 'rgba(14,165,233,0.1)',
+                            borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#0EA5E9',
+                            tension: 0.3, fill: false, order: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Performances par rencontre — ${gardien}`,
+                            font: { size: 18, weight: 'bold', family: 'Bebas Neue' },
+                            color: '#1E3A5F', padding: { bottom: 14 },
+                        },
+                        legend: { position: 'bottom', labels: { font: { size: 13 }, padding: 18, usePointStyle: true } },
+                    },
+                    scales: {
+                        x: { ticks: { font: { size: 12, weight: '700' }, maxRotation: 45 } },
+                        y: {
+                            position: 'left',
+                            title: { display: true, text: 'Arrêts / Score', font: { size: 11 } },
+                            ticks: { font: { size: 12 } },
+                        },
+                        y1: {
+                            position: 'right',
+                            title: { display: true, text: '% Arrêts', font: { size: 11 } },
+                            min: 0, max: 100,
+                            ticks: { font: { size: 12 }, callback: v => v + '%' },
+                            grid: { drawOnChartArea: false },
+                        },
+                    },
+                },
+            });
+        }
+
         function updateNotesPage() {
             const joueurFilter = document.getElementById('filter-note-joueur').value;
             const matchFilter = document.getElementById('filter-note-match').value;
-            
+
             const playerNotes = calculatePlayerNotes(matchFilter, joueurFilter);
             renderNotesTable(playerNotes, 'notes-table');
+
+            const gbNotes = calculateGardienNotes(matchFilter);
+            renderGardienNotesTable(gbNotes, 'notes-gb-table');
         }
 
         function updateNotesRecapTable() {
