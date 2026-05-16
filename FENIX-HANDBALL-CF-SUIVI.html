@@ -3803,13 +3803,22 @@ let _effInfoPoste = null;
                     row[COLS.resultat] === 'But'
                 ).length;
 
+                // Note GB : utiliser le système de scoring gardien (zone-weighted)
+                const gbAllNotes = calculateGardienNotes(matchFilter);
+                const gbNoteEntry = Object.entries(gbAllNotes).find(([k]) => matchPlayerName(k, nom));
+                const gbNoteTotal = gbNoteEntry
+                    ? (gbNoteEntry[1].scoreArrets + gbNoteEntry[1].scoreButs + gbNoteEntry[1].bonus)
+                    : 0;
+                const gbNoteColor   = gbNoteTotal > 0 ? 'var(--fenix-success)' : gbNoteTotal < 0 ? 'var(--fenix-danger)' : '#64748B';
+                const gbNoteDisplay = (gbNoteTotal > 0 ? '+' : '') + gbNoteTotal;
+
                 document.getElementById('joueur-panel').innerHTML = jpHeader + `
                     <div class="jp-stats-grid" style="grid-template-columns:repeat(5,1fr)">
                         <div class="jp-stat"><div class="jp-val">${arrets}/${totalFaced}</div><div class="jp-lbl">Arrêts / Tirs</div></div>
                         <div class="jp-stat"><div class="jp-val" style="color:${gbEffColor}">${gbEff}%</div><div class="jp-lbl">Efficacité</div></div>
                         <div class="jp-stat"><div class="jp-val" style="color:var(--fenix-accent)">${gbPd}</div><div class="jp-lbl">PD</div></div>
                         <div class="jp-stat"><div class="jp-val" style="color:var(--fenix-success)">${gbButs}</div><div class="jp-lbl">Buts marqués</div></div>
-                        <div class="jp-stat"><div class="jp-val" style="color:${noteColor}">${noteDisplay}</div><div class="jp-lbl">Note</div></div>
+                        <div class="jp-stat"><div class="jp-val" style="color:${gbNoteColor}">${gbNoteDisplay}</div><div class="jp-lbl">Note GB</div></div>
                     </div>`;
             } else {
                 document.getElementById('joueur-panel').innerHTML = jpHeader + `
