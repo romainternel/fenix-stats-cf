@@ -4839,6 +4839,12 @@ let _effInfoPoste = null;
                 return t > 0 ? Math.round(matchData[m].arrets / t * 100) : 0;
             });
 
+            // Calculer les limites de l'axe gauche pour aligner le 0 avec l'axe droit (%)
+            const yMin = Math.min(0, ...scores) - 1;
+            const yMax = Math.max(...arrets, ...scores, 1) + 1;
+            // rightMin tel que 0/100 soit à la même hauteur que 0/yMax sur l'axe gauche
+            const y1Min = yMin < 0 ? Math.floor(100 * yMin / yMax) - 2 : 0;
+
             const ctx = document.getElementById('gbg-canvas').getContext('2d');
             gbGraphChart = new Chart(ctx, {
                 data: {
@@ -4882,14 +4888,13 @@ let _effInfoPoste = null;
                     scales: {
                         x: { ticks: { font: { size: 12, weight: '700' }, maxRotation: 45 } },
                         y: {
-                            position: 'left',
+                            position: 'left', min: yMin, max: yMax,
                             title: { display: true, text: 'Arrêts / Score', font: { size: 11 } },
                             ticks: { font: { size: 12 } },
                         },
                         y1: {
-                            position: 'right',
+                            position: 'right', min: y1Min, max: 100,
                             title: { display: true, text: '% Arrêts', font: { size: 11 } },
-                            min: 0, max: 100,
                             ticks: { font: { size: 12 }, callback: v => v + '%' },
                             grid: { drawOnChartArea: false },
                         },
