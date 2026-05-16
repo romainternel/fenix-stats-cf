@@ -4532,6 +4532,10 @@ let _effInfoPoste = null;
             });
 
             // Passe 2 : actions offensives du GB (But +1, PB -1 dans action_att)
+            // Initialiser les GB sans tirs adverses pour ne pas perdre leur bonus offensif
+            GARDIENS_FENIX.forEach(g => {
+                if (!gbNotes[g]) gbNotes[g] = { arrets: 0, buts: 0, scoreArrets: 0, scoreButs: 0, bonus: 0, matchSet: new Set(), zones: {} };
+            });
             DATA.forEach(row => {
                 if (selectedMatchesList.length > 0 && !selectedMatchesList.includes(row[COLS.rencontre])) return;
                 const joueurs = (row[COLS.action_joueur] || '').toString().split(';');
@@ -4747,8 +4751,12 @@ let _effInfoPoste = null;
         }
 
         function openGbZoneModal(gardien) {
-            const n = _lastGbNotes[gardien];
-            if (!n) return;
+            let n = _lastGbNotes[gardien];
+            if (!n) {
+                const fresh = calculateGardienNotes('');
+                n = fresh[gardien];
+                if (!n) return;
+            }
 
             document.getElementById('gb-zone-modal-title').textContent = `📍 Zones — ${gardien}`;
 
@@ -4856,7 +4864,7 @@ let _effInfoPoste = null;
             });
 
             // Limites axe gauche (scores peuvent être négatifs)
-            const yMin = Math.min(0, ...scores) - 1;
+            const yMin = Math.min(0, ...scores);
             const yMax = Math.max(...arrets, ...scores, 1) + 1;
 
             const ctx = document.getElementById('gbg-canvas').getContext('2d');
