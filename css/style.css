@@ -1446,3 +1446,46 @@
             25% { transform: translateX(-6px); }
             75% { transform: translateX(6px); }
         }
+
+        /* ── Print / PDF ── */
+        #joueur-print-zone { display: none; }
+
+        .jp-print-btn {
+            margin-top: 0.75rem;
+            width: 100%;
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,0.5);
+            color: white;
+            border-radius: 8px;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+        .jp-print-btn:hover { background: rgba(255,255,255,0.15); }
+
+        .print-fenix-header {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            color: #0A2463;
+            text-align: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #0A2463;
+            letter-spacing: 2px;
+        }
+
+        @media print {
+            body > *:not(#joueur-print-zone) { display: none !important; }
+            #joueur-print-zone {
+                display: block !important;
+                padding: 24px;
+                font-family: 'Inter', sans-serif;
+            }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .jp-print-btn { display: none !important; }
+            .jp-header { border-radius: 8px !important; }
+            .jm-table-wrap { overflow: visible !important; }
+        }

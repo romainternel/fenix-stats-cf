@@ -131,10 +131,11 @@
             const jpHeader = `
                 <div class="jp-header" style="background:linear-gradient(135deg,${color} 0%,${color}cc 100%);">
                     <div class="jp-avatar">${initials}</div>
-                    <div>
+                    <div style="flex:1">
                         <div class="jp-name">${nom}</div>
                         <div class="jp-poste-label">${posteCode} — ${posteLabel}</div>
                         ${tjHeaderStr}
+                        <button class="jp-print-btn" onclick="printFicheJoueur()">🖨️ Imprimer fiche PDF</button>
                     </div>
                 </div>`;
 
@@ -511,5 +512,23 @@
 
         function closePlayerModal() {
             document.getElementById('player-modal').style.display = 'none';
+        }
+
+        function printFicheJoueur() {
+            const panel   = document.getElementById('joueur-panel');
+            const matches = document.getElementById('joueur-matches');
+            if (!panel || !matches) return;
+
+            const printZone = document.getElementById('joueur-print-zone');
+            printZone.innerHTML =
+                '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>' +
+                panel.outerHTML +
+                matches.outerHTML;
+
+            window.addEventListener('afterprint', function cleanup() {
+                printZone.innerHTML = '';
+                window.removeEventListener('afterprint', cleanup);
+            });
+            window.print();
         }
 
