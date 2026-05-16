@@ -608,6 +608,8 @@
             // Limites axe gauche (scores peuvent être négatifs)
             const yMin = Math.min(0, ...scores);
             const yMax = Math.max(...arrets, ...scores, 1) + 1;
+            // Aligner 0% (axe droit) avec 0 (axe gauche) : y1Min = 100 * yMin / yMax
+            const y1Min = yMax > 0 ? Math.floor(100 * yMin / yMax) : 0;
 
             const ctx = document.getElementById('gbg-canvas').getContext('2d');
             gbGraphChart = new Chart(ctx, {
@@ -657,7 +659,7 @@
                             ticks: { font: { size: 12 } },
                         },
                         y1: {
-                            position: 'right', min: 0, max: 100,
+                            position: 'right', min: y1Min, max: 100,
                             title: { display: true, text: '% Arrêts', font: { size: 11 } },
                             ticks: { font: { size: 12 }, callback: v => v + '%' },
                             grid: { drawOnChartArea: false },
