@@ -2781,16 +2781,21 @@ let _effInfoPoste = null;
                 GARDIENS_FENIX.forEach(g => gardienFilter.innerHTML += `<option value="${g}">${g}</option>`);
             }
 
-            // Graph GB : gardiens détectés dans les tirs adverses
+            // Graph GB : gardiens détectés dans les tirs adverses, filtrés par GARDIENS_FENIX si disponible
             const gbgSelect = document.getElementById('gbg-gardien');
             if (gbgSelect) {
-                const gardiensDansData = [...new Set(
-                    DATA.filter(r => r[COLS.club] !== 'FENIX' && r[COLS.gardien])
-                        .map(r => (r[COLS.gardien] || '').toString().trim())
-                        .filter(Boolean)
-                )].sort();
-                gbgSelect.innerHTML = '<option value="">Sélectionner un gardien</option>';
-                gardiensDansData.forEach(g => gbgSelect.innerHTML += `<option value="${g}">${g}</option>`);
+                let gardiensGB;
+                if (GARDIENS_FENIX.length > 0) {
+                    gardiensGB = GARDIENS_FENIX;
+                } else {
+                    gardiensGB = [...new Set(
+                        DATA.filter(r => r[COLS.club] !== 'FENIX' && r[COLS.gardien])
+                            .map(r => (r[COLS.gardien] || '').toString().trim())
+                            .filter(Boolean)
+                    )].sort();
+                }
+                gbgSelect.innerHTML = '<option value="">— Gardien —</option>';
+                gardiensGB.forEach(g => gbgSelect.innerHTML += `<option value="${g}">${g}</option>`);
             }
             
             const zoneFilter = document.getElementById('filter-impact-zone');
@@ -4494,6 +4499,8 @@ let _effInfoPoste = null;
 
                 const gardien = (row[COLS.gardien] || '').toString().trim();
                 if (!gardien) return;
+                // Si la feuille Joueurs est chargée, ne garder que les vrais GB
+                if (GARDIENS_FENIX.length > 0 && !GARDIENS_FENIX.includes(gardien)) return;
 
                 const finalite = (row[COLS.finalite] || '').toString();
                 const resultat  = (row[COLS.resultat]  || '').toString();
@@ -4839,11 +4846,9 @@ let _effInfoPoste = null;
                 return t > 0 ? Math.round(matchData[m].arrets / t * 100) : 0;
             });
 
-            // Calculer les limites de l'axe gauche pour aligner le 0 avec l'axe droit (%)
+            // Limites axe gauche (scores peuvent être négatifs)
             const yMin = Math.min(0, ...scores) - 1;
             const yMax = Math.max(...arrets, ...scores, 1) + 1;
-            // rightMin tel que 0/100 soit à la même hauteur que 0/yMax sur l'axe gauche
-            const y1Min = yMin < 0 ? Math.floor(100 * yMin / yMax) - 2 : 0;
 
             const ctx = document.getElementById('gbg-canvas').getContext('2d');
             gbGraphChart = new Chart(ctx, {
@@ -4893,7 +4898,7 @@ let _effInfoPoste = null;
                             ticks: { font: { size: 12 } },
                         },
                         y1: {
-                            position: 'right', min: y1Min, max: 100,
+                            position: 'right', min: 0, max: 100,
                             title: { display: true, text: '% Arrêts', font: { size: 11 } },
                             ticks: { font: { size: 12 }, callback: v => v + '%' },
                             grid: { drawOnChartArea: false },
