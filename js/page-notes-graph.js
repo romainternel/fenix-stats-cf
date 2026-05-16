@@ -661,7 +661,7 @@
                         y1: {
                             position: 'right', min: y1Min, max: 100,
                             title: { display: true, text: '% Arrêts', font: { size: 11 } },
-                            ticks: { font: { size: 12 }, callback: v => v + '%' },
+                            ticks: { font: { size: 12 }, callback: v => v >= 0 ? v + '%' : '' },
                             grid: { drawOnChartArea: false },
                         },
                     },
