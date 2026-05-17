@@ -514,7 +514,7 @@
             document.getElementById('player-modal').style.display = 'none';
         }
 
-        function printFicheJoueur() {
+        async function printFicheJoueur() {
             const panel   = document.getElementById('joueur-panel');
             const matches = document.getElementById('joueur-matches');
             if (!panel || !matches) return;
@@ -522,7 +522,9 @@
             const nom = currentSelectedJoueur;
             if (!nom) return;
 
-            const matchFilter = document.getElementById('filter-joueur-match').value;
+            const terrainPlayer = JOUEURS_TERRAIN.find(p => p.nom === nom);
+            const isGB          = terrainPlayer && terrainPlayer.poste === 'GB';
+            const matchFilter   = document.getElementById('filter-joueur-match').value;
 
             // === 1. Détail complet actions (toutes lignes NOTE_GROUPS, 2 colonnes) ===
             const counts = {};
@@ -672,63 +674,91 @@
                 }
             } catch(e) { console.warn('PDF graph error:', e); }
 
-            // === 3. Impact — offscreen canvas 2D (dimensions fixes, sans dépendance DOM) ===
+            // === 3. Impact — images rechargées avec crossOrigin pour éviter le taint canvas ===
             let impactHTML = '';
             try {
-                const impactRows = DATA.filter(row =>
-                    row[COLS.club] === 'FENIX' &&
-                    ['But', 'Tir raté'].includes(row[COLS.resultat]) &&
-                    row[COLS.impact] && String(row[COLS.impact]).includes(';') &&
-                    matchPlayerName((row[COLS.joueur] || '').toString().trim(), nom)
-                );
+                // Charger les images de fond avec CORS pour que toDataURL() fonctionne
+                const loadCORS = src => new Promise(res => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload  = () => res(img);
+                    img.onerror = () => res(null);
+                    img.src = src;
+                });
+                const [imgALG, imgFace, imgALD] = await Promise.all([
+                    loadCORS('ALG.png'),
+                    loadCORS('TERRAIN HB TIR.png'),
+                    loadCORS('ALD.png'),
+                ]);
+
+                // Filtre données : joueur de champ → tirs FENIX / GB → tirs adverses (gardien)
+                const impactRows = isGB
+                    ? DATA.filter(row =>
+                        row[COLS.club] !== 'FENIX' &&
+                        (row[COLS.finalite] === 'Tir arrêté' || row[COLS.resultat] === 'But') &&
+                        row[COLS.impact] && String(row[COLS.impact]).includes(';') &&
+                        matchPlayerName((row[COLS.gardien] || '').toString().trim(), nom)
+                    )
+                    : DATA.filter(row =>
+                        row[COLS.club] === 'FENIX' &&
+                        ['But', 'Tir raté'].includes(row[COLS.resultat]) &&
+                        row[COLS.impact] && String(row[COLS.impact]).includes(';') &&
+                        matchPlayerName((row[COLS.joueur] || '').toString().trim(), nom)
+                    );
+
                 const drawOS = (img, data, w, h) => {
                     const c = document.createElement('canvas');
                     c.width = w; c.height = h;
                     const ctx = c.getContext('2d');
-                    ctx.clearRect(0, 0, w, h);
+                    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0, 0, w, h);
                     let dx=0, dy=0, dw=w, dh=h;
-                    if (img && img.complete && img.naturalWidth > 0) {
-                        const ar = img.naturalWidth / img.naturalHeight, car = w / h;
-                        if (ar > car) { dh = w/ar; dy = (h-dh)/2; } else { dw = h*ar; dx = (w-dw)/2; }
+                    if (img && img.naturalWidth > 0) {
+                        const ar=img.naturalWidth/img.naturalHeight, car=w/h;
+                        if (ar>car){dh=w/ar;dy=(h-dh)/2;}else{dw=h*ar;dx=(w-dw)/2;}
                         ctx.drawImage(img, dx, dy, dw, dh);
-                    } else { ctx.fillStyle='#e2e8f0'; ctx.fillRect(0,0,w,h); }
+                    }
                     data.forEach(row => {
-                        const p = String(row[COLS.impact]).split(';');
-                        const x = parseFloat(p[0]), y = parseFloat(p[1]);
-                        if (isNaN(x)||isNaN(y)) return;
-                        const dotX = dx+(x/100)*dw, dotY = dy+(y/100)*dh, s=6;
+                        const p=String(row[COLS.impact]).split(';');
+                        const x=parseFloat(p[0]),y=parseFloat(p[1]);
+                        if(isNaN(x)||isNaN(y)) return;
+                        const dotX=dx+(x/100)*dw, dotY=dy+(y/100)*dh, s=6;
                         ctx.save();
-                        if (row[COLS.resultat]==='But') {
-                            ctx.beginPath(); ctx.arc(dotX,dotY,s,0,Math.PI*2);
-                            ctx.fillStyle='#10B981'; ctx.fill();
-                            ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
+                        const isPositive = isGB ? row[COLS.finalite]==='Tir arrêté' : row[COLS.resultat]==='But';
+                        if(isPositive){
+                            ctx.beginPath();ctx.arc(dotX,dotY,s,0,Math.PI*2);
+                            ctx.fillStyle='#10B981';ctx.fill();
+                            ctx.strokeStyle='white';ctx.lineWidth=1.5;ctx.stroke();
                         } else {
-                            const sc=s/Math.SQRT2; ctx.strokeStyle='#EF4444'; ctx.lineWidth=2.5;
-                            ctx.beginPath(); ctx.moveTo(dotX-sc,dotY-sc); ctx.lineTo(dotX+sc,dotY+sc);
-                            ctx.moveTo(dotX+sc,dotY-sc); ctx.lineTo(dotX-sc,dotY+sc); ctx.stroke();
+                            const sc=s/Math.SQRT2;ctx.strokeStyle='#EF4444';ctx.lineWidth=2.5;
+                            ctx.beginPath();ctx.moveTo(dotX-sc,dotY-sc);ctx.lineTo(dotX+sc,dotY+sc);
+                            ctx.moveTo(dotX+sc,dotY-sc);ctx.lineTo(dotX-sc,dotY+sc);ctx.stroke();
                         }
                         ctx.restore();
                     });
                     return c.toDataURL('image/png');
                 };
-                const total = impactRows.length;
-                const buts  = impactRows.filter(r=>r[COLS.resultat]==='But').length;
+
+                const total    = impactRows.length;
+                const positifs = isGB
+                    ? impactRows.filter(r=>r[COLS.finalite]==='Tir arrêté').length
+                    : impactRows.filter(r=>r[COLS.resultat]==='But').length;
                 if (total > 0) {
-                    const pct    = Math.round(buts/total*100);
-                    const imgALG  = drawOS(IMPACT_IMAGES.alg,  impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200);
-                    const imgFace = drawOS(IMPACT_IMAGES.face, impactRows.filter(r=>getImpactView(r)==='face'), 320, 200);
-                    const imgALD  = drawOS(IMPACT_IMAGES.ald,  impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200);
+                    const pct   = Math.round(positifs/total*100);
+                    const titre = isGB ? `ZONES D'ARRÊT — ${positifs} arrêts / ${total} tirs (${pct}%)` : `ZONES DE TIR — ${positifs}/${total} (${pct}%)`;
+                    const dALG  = drawOS(imgALG,  impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200);
+                    const dFace = drawOS(imgFace, impactRows.filter(r=>getImpactView(r)==='face'), 320, 200);
+                    const dALD  = drawOS(imgALD,  impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200);
                     impactHTML = `
                         <div style="margin:16px 0;page-break-inside:avoid">
-                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">ZONES DE TIR — ${buts}/${total} (${pct}%)</div>
+                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">${titre}</div>
                             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-                                <div style="text-align:center"><img src="${imgALG}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div></div>
-                                <div style="text-align:center"><img src="${imgFace}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">CENTRAL</div></div>
-                                <div style="text-align:center"><img src="${imgALD}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT DROIT</div></div>
+                                <div style="text-align:center"><img src="${dALG}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div></div>
+                                <div style="text-align:center"><img src="${dFace}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">CENTRAL</div></div>
+                                <div style="text-align:center"><img src="${dALD}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT DROIT</div></div>
                             </div>
                         </div>`;
                 }
-            } catch(e) { console.warn('PDF impact error:', e); }
+            } catch(e) { console.error('PDF impact error:', e); }
 
             const printZone = document.getElementById('joueur-print-zone');
             printZone.innerHTML =
