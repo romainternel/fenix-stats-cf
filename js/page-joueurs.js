@@ -601,19 +601,16 @@
                     </div>
                 </div>`;
 
-            // === 2. Note graph — canvas 2D pur (pas de Chart.js) ===
-            let graphImgHTML = '';
-            let _dbgGraph = '';
-            try {
+            // === 2. Note graph — canvas DOM direct (Safari ne rend pas les data: URL en print) ===
+            let graphCanvas = null;
+            {
                 const matchData = {};
                 MATCHS.forEach(m => matchData[m] = { ap:0, am:0, dp:0, dm:0 });
-                let _foundRows = 0;
                 DATA.forEach(row => {
                     const m = row[COLS.rencontre];
                     if (!matchData[m]) return;
                     (row[COLS.action_joueur]||'').toString().split(';').forEach((j,idx) => {
                         if (!matchPlayerName(j.trim(), nom)) return;
-                        _foundRows++;
                         const att = lastNonEmpty((row[COLS.action_att]||'').toString().split(';'), idx);
                         const def = lastNonEmpty((row[COLS.action_def]||'').toString().split(';'), idx);
                         if (isPositiveATT(att)) matchData[m].ap++;
@@ -623,7 +620,6 @@
                     });
                 });
                 const played = MATCHS.filter(m => { const d=matchData[m]; return d.ap+d.am+d.dp+d.dm>0; });
-                _dbgGraph = `MATCHS=${MATCHS.length} DATA=${DATA.length} lignes-joueur=${_foundRows} played=${played.length}`;
                 if (played.length > 0) {
                     const noteA = played.map(m => matchData[m].ap - matchData[m].am);
                     const noteD = played.map(m => matchData[m].dp - matchData[m].dm);
@@ -639,9 +635,9 @@
                     const bW = slotW*0.28;
                     const cx = i => pl.l + (i+0.5)*slotW;
                     const c=document.createElement('canvas'); c.width=W; c.height=H;
+                    c.style.cssText='width:100%;display:block;border-radius:8px;border:1px solid #E2E8F0';
                     const ctx=c.getContext('2d');
                     ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
-                    // Grid
                     for(let v=Math.ceil(minV);v<=Math.floor(maxV);v++){
                         if(v%2!==0) continue;
                         const y=toY(v);
@@ -650,23 +646,19 @@
                         ctx.fillStyle='#94A3B8'; ctx.font='10px Inter,sans-serif';
                         ctx.textAlign='right'; ctx.fillText(v,pl.l-4,y+3);
                     }
-                    // Zero line
                     const y0=toY(0);
                     ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=1.5;
                     ctx.beginPath(); ctx.moveTo(pl.l,y0); ctx.lineTo(pl.l+cW,y0); ctx.stroke();
-                    // Bars ATT
                     noteA.forEach((v,i)=>{
                         const bh=Math.abs(toY(v)-y0);
                         ctx.fillStyle='rgba(20,184,166,0.8)';
                         ctx.fillRect(cx(i)-bW*1.05, Math.min(toY(v),y0), bW, bh||1);
                     });
-                    // Bars DEF
                     noteD.forEach((v,i)=>{
                         const bh=Math.abs(toY(v)-y0);
                         ctx.fillStyle='rgba(245,158,11,0.8)';
                         ctx.fillRect(cx(i)+0.05*bW, Math.min(toY(v),y0), bW, bh||1);
                     });
-                    // Total line
                     ctx.strokeStyle='#1E3A5F'; ctx.lineWidth=2.5;
                     ctx.beginPath();
                     tot.forEach((v,i)=>{ i===0?ctx.moveTo(cx(i),toY(v)):ctx.lineTo(cx(i),toY(v)); });
@@ -674,17 +666,13 @@
                     tot.forEach((v,i)=>{
                         ctx.beginPath(); ctx.arc(cx(i),toY(v),4,0,Math.PI*2);
                         ctx.fillStyle='#1E3A5F'; ctx.fill();
-                        // Value label
                         ctx.fillStyle='#1E3A5F'; ctx.font='bold 10px Inter,sans-serif';
                         ctx.textAlign='center'; ctx.fillText((v>=0?'+':'')+v, cx(i), toY(v)-7);
                     });
-                    // X labels
                     ctx.fillStyle='#334155'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='center';
                     played.forEach((m,i)=>{ ctx.fillText(m.split(' ')[0], cx(i), H-pl.b+14); });
-                    // Title
                     ctx.fillStyle='#1E3A5F'; ctx.font='bold 14px Inter,sans-serif';
                     ctx.textAlign='center'; ctx.fillText(`Notes par rencontre — ${nom}`, W/2, 20);
-                    // Legend
                     const ly=H-8;
                     ctx.fillStyle='rgba(20,184,166,0.8)'; ctx.fillRect(pl.l,ly-9,12,10);
                     ctx.fillStyle='#334155'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='left';
@@ -694,18 +682,14 @@
                     ctx.strokeStyle='#1E3A5F'; ctx.lineWidth=2;
                     ctx.beginPath(); ctx.moveTo(pl.l+175,ly-4); ctx.lineTo(pl.l+187,ly-4); ctx.stroke();
                     ctx.fillText('TOTAL',pl.l+191,ly);
-                    graphImgHTML = `
-                        <div style="margin:16px 0">
-                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">PROGRESSION DES NOTES</div>
-                            <img src="${c.toDataURL('image/png')}" style="width:100%;border-radius:8px;border:1px solid #E2E8F0"/>
-                        </div>`;
+                    graphCanvas = c;
                 }
-            } catch(e) { _dbgGraph = 'ERREUR GRAPH: ' + e.message; }
+            }
 
-            // === 3. Impact — canvas 2D pur, sans image de fond (pas de CORS) ===
-            let impactHTML = '';
-            let _dbgImpact = '';
-            try {
+            // === 3. Impact — canvas DOM direct ===
+            let impactCanvases = null;
+            let impactTitre = '';
+            {
                 const impactRows = isGB
                     ? DATA.filter(row =>
                         row[COLS.club] !== 'FENIX' &&
@@ -722,6 +706,7 @@
 
                 const drawOS = (data, W, H) => {
                     const c=document.createElement('canvas'); c.width=W; c.height=H;
+                    c.style.cssText='width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0';
                     const ctx=c.getContext('2d');
                     ctx.fillStyle='#EFF6FF'; ctx.fillRect(0,0,W,H);
                     ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
@@ -743,54 +728,51 @@
                         }
                         ctx.restore();
                     });
-                    return c.toDataURL('image/png');
+                    return c;
                 };
 
-                const total    = impactRows.length;
-                _dbgImpact = `isGB=${isGB} impactRows=${total}`;
-                const positifs = isGB
-                    ? impactRows.filter(r=>r[COLS.finalite]==='Tir arrêté').length
-                    : impactRows.filter(r=>r[COLS.resultat]==='But').length;
+                const total = impactRows.length;
                 if (total > 0) {
-                    const pct   = Math.round(positifs/total*100);
-                    const titre = isGB
+                    const positifs = isGB
+                        ? impactRows.filter(r=>r[COLS.finalite]==='Tir arrêté').length
+                        : impactRows.filter(r=>r[COLS.resultat]==='But').length;
+                    const pct = Math.round(positifs/total*100);
+                    impactTitre = isGB
                         ? `ZONES D'ARRÊT — ${positifs} arrêts / ${total} tirs (${pct}%)`
                         : `ZONES DE TIR — ${positifs} buts / ${total} tirs (${pct}%)`;
-                    const dALG  = drawOS(impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200);
-                    const dFace = drawOS(impactRows.filter(r=>getImpactView(r)==='face'), 320, 200);
-                    const dALD  = drawOS(impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200);
-                    impactHTML = `
-                        <div style="margin:16px 0">
-                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">${titre}</div>
-                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-                                <div style="text-align:center"><img src="${dALG}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div></div>
-                                <div style="text-align:center"><img src="${dFace}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">CENTRAL</div></div>
-                                <div style="text-align:center"><img src="${dALD}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT DROIT</div></div>
-                            </div>
-                        </div>`;
+                    impactCanvases = {
+                        alg:  drawOS(impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200),
+                        face: drawOS(impactRows.filter(r=>getImpactView(r)==='face'), 320, 200),
+                        ald:  drawOS(impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200),
+                    };
                 }
-            } catch(e) { _dbgImpact = 'ERREUR IMPACT: ' + e.message; }
+            }
 
-            const header    = '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>';
-            const noImpact  = `<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d'impact</div>`;
-            const debugBanner = `<div style="background:#FEF3C7;border:2px solid #F59E0B;padding:8px 12px;font-size:0.72rem;font-family:monospace;margin-bottom:8px;border-radius:4px">🔍 DEBUG: nom="${nom}" isGB=${isGB} | ${_dbgGraph} | ${_dbgImpact}</div>`;
+            const header   = '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>';
+            const noImpact = `<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d'impact</div>`;
 
             const printZone = document.getElementById('joueur-print-zone');
             printZone.innerHTML = `
                 <div class="pdf-page">
-                    ${debugBanner}
                     ${header}
                     ${panel.outerHTML}
                     ${actionCardHTML}
                 </div>
                 <div class="pdf-page">
                     ${matches.outerHTML}
-                    ${graphImgHTML}
+                    ${graphCanvas ? `<div style="margin:16px 0"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">PROGRESSION DES NOTES</div><div id="pdf-graph-slot"></div></div>` : ''}
                 </div>
                 <div>
                     ${header}
-                    ${impactHTML || noImpact}
+                    ${impactCanvases ? `<div style="margin:16px 0"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">${impactTitre}</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div style="text-align:center"><div id="pdf-alg-slot"></div><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div></div><div style="text-align:center"><div id="pdf-face-slot"></div><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">CENTRAL</div></div><div style="text-align:center"><div id="pdf-ald-slot"></div><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT DROIT</div></div></div></div>` : noImpact}
                 </div>`;
+
+            if (graphCanvas)    document.getElementById('pdf-graph-slot').appendChild(graphCanvas);
+            if (impactCanvases) {
+                document.getElementById('pdf-alg-slot').appendChild(impactCanvases.alg);
+                document.getElementById('pdf-face-slot').appendChild(impactCanvases.face);
+                document.getElementById('pdf-ald-slot').appendChild(impactCanvases.ald);
+            }
 
             window.addEventListener('afterprint', function cleanup() {
                 printZone.innerHTML = '';
