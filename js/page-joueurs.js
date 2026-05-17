@@ -603,14 +603,17 @@
 
             // === 2. Note graph — canvas 2D pur (pas de Chart.js) ===
             let graphImgHTML = '';
-            {
+            let _dbgGraph = '';
+            try {
                 const matchData = {};
                 MATCHS.forEach(m => matchData[m] = { ap:0, am:0, dp:0, dm:0 });
+                let _foundRows = 0;
                 DATA.forEach(row => {
                     const m = row[COLS.rencontre];
                     if (!matchData[m]) return;
                     (row[COLS.action_joueur]||'').toString().split(';').forEach((j,idx) => {
                         if (!matchPlayerName(j.trim(), nom)) return;
+                        _foundRows++;
                         const att = lastNonEmpty((row[COLS.action_att]||'').toString().split(';'), idx);
                         const def = lastNonEmpty((row[COLS.action_def]||'').toString().split(';'), idx);
                         if (isPositiveATT(att)) matchData[m].ap++;
@@ -620,6 +623,7 @@
                     });
                 });
                 const played = MATCHS.filter(m => { const d=matchData[m]; return d.ap+d.am+d.dp+d.dm>0; });
+                _dbgGraph = `MATCHS=${MATCHS.length} DATA=${DATA.length} lignes-joueur=${_foundRows} played=${played.length}`;
                 if (played.length > 0) {
                     const noteA = played.map(m => matchData[m].ap - matchData[m].am);
                     const noteD = played.map(m => matchData[m].dp - matchData[m].dm);
@@ -696,11 +700,12 @@
                             <img src="${c.toDataURL('image/png')}" style="width:100%;border-radius:8px;border:1px solid #E2E8F0"/>
                         </div>`;
                 }
-            }
+            } catch(e) { _dbgGraph = 'ERREUR GRAPH: ' + e.message; }
 
             // === 3. Impact — canvas 2D pur, sans image de fond (pas de CORS) ===
             let impactHTML = '';
-            {
+            let _dbgImpact = '';
+            try {
                 const impactRows = isGB
                     ? DATA.filter(row =>
                         row[COLS.club] !== 'FENIX' &&
@@ -742,6 +747,7 @@
                 };
 
                 const total    = impactRows.length;
+                _dbgImpact = `isGB=${isGB} impactRows=${total}`;
                 const positifs = isGB
                     ? impactRows.filter(r=>r[COLS.finalite]==='Tir arrêté').length
                     : impactRows.filter(r=>r[COLS.resultat]==='But').length;
@@ -763,14 +769,16 @@
                             </div>
                         </div>`;
                 }
-            }
+            } catch(e) { _dbgImpact = 'ERREUR IMPACT: ' + e.message; }
 
             const header    = '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>';
-            const noImpact  = '<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d\'impact</div>';
+            const noImpact  = `<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d'impact</div>`;
+            const debugBanner = `<div style="background:#FEF3C7;border:2px solid #F59E0B;padding:8px 12px;font-size:0.72rem;font-family:monospace;margin-bottom:8px;border-radius:4px">🔍 DEBUG: nom="${nom}" isGB=${isGB} | ${_dbgGraph} | ${_dbgImpact}</div>`;
 
             const printZone = document.getElementById('joueur-print-zone');
             printZone.innerHTML = `
                 <div class="pdf-page">
+                    ${debugBanner}
                     ${header}
                     ${panel.outerHTML}
                     ${actionCardHTML}
