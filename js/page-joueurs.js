@@ -519,11 +519,232 @@
             const matches = document.getElementById('joueur-matches');
             if (!panel || !matches) return;
 
+            const nom = currentSelectedJoueur;
+            if (!nom) return;
+
+            const matchFilter = document.getElementById('filter-joueur-match').value;
+
+            // === 1. Action +/- card ===
+            let attPlus = 0, attMoins = 0, defPlus = 0, defMoins = 0;
+            DATA.forEach(row => {
+                if (matchFilter && row[COLS.rencontre] !== matchFilter) return;
+                const joueurs = (row[COLS.action_joueur] || '').toString().split(';');
+                const atts    = (row[COLS.action_att]    || '').toString().split(';');
+                const defs    = (row[COLS.action_def]    || '').toString().split(';');
+                joueurs.forEach((j, idx) => {
+                    if (!matchPlayerName(j.trim(), nom)) return;
+                    const att = lastNonEmpty(atts, idx);
+                    const def = lastNonEmpty(defs, idx);
+                    if (isPositiveATT(att)) attPlus++;
+                    else if (isNegativeATT(att)) attMoins++;
+                    if (isPositiveDEF(def)) defPlus++;
+                    else if (isNegativeDEF(def)) defMoins++;
+                });
+            });
+            const noteAtt   = attPlus  - attMoins;
+            const noteDef   = defPlus  - defMoins;
+            const noteTotal = noteAtt  + noteDef;
+            const sign      = v => (v >= 0 ? '+' : '') + v;
+            const ntColor   = noteTotal >= 0 ? '#10B981' : '#EF4444';
+            const naColor   = noteAtt   >= 0 ? '#10B981' : '#EF4444';
+            const ndColor   = noteDef   >= 0 ? '#10B981' : '#EF4444';
+
+            const actionCardHTML = `
+                <div style="margin:12px 0;padding:12px 16px;border:1.5px solid #CBD5E1;border-radius:10px;background:#F8FAFC;page-break-inside:avoid">
+                    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:10px;letter-spacing:1.5px">BILAN ACTIONS</div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:10px">
+                        <div style="padding:6px;background:rgba(16,185,129,0.1);border-radius:6px">
+                            <div style="font-size:1.4rem;font-weight:700;color:#10B981">+${attPlus}</div>
+                            <div style="font-size:0.72rem;color:#64748B;font-weight:600">ATT +</div>
+                        </div>
+                        <div style="padding:6px;background:rgba(239,68,68,0.1);border-radius:6px">
+                            <div style="font-size:1.4rem;font-weight:700;color:#EF4444">-${attMoins}</div>
+                            <div style="font-size:0.72rem;color:#64748B;font-weight:600">ATT -</div>
+                        </div>
+                        <div style="padding:6px;background:rgba(16,185,129,0.1);border-radius:6px">
+                            <div style="font-size:1.4rem;font-weight:700;color:#10B981">+${defPlus}</div>
+                            <div style="font-size:0.72rem;color:#64748B;font-weight:600">DEF +</div>
+                        </div>
+                        <div style="padding:6px;background:rgba(239,68,68,0.1);border-radius:6px">
+                            <div style="font-size:1.4rem;font-weight:700;color:#EF4444">-${defMoins}</div>
+                            <div style="font-size:0.72rem;color:#64748B;font-weight:600">DEF -</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;border-top:1px solid #E2E8F0;padding-top:8px">
+                        <div><span style="font-weight:700;color:${naColor}">${sign(noteAtt)}</span> <span style="font-size:0.75rem;color:#64748B">Note ATT</span></div>
+                        <div><span style="font-weight:700;color:${ndColor}">${sign(noteDef)}</span> <span style="font-size:0.75rem;color:#64748B">Note DEF</span></div>
+                        <div><span style="font-weight:700;font-size:1.1rem;color:${ntColor}">${sign(noteTotal)}</span> <span style="font-size:0.75rem;color:#64748B">Note globale</span></div>
+                    </div>
+                </div>`;
+
+            // === 2. Note graph (offscreen Chart.js) ===
+            let graphImgHTML = '';
+            try {
+                const matchData = {};
+                MATCHS.forEach(m => matchData[m] = { ap: 0, am: 0, dp: 0, dm: 0 });
+                DATA.forEach(row => {
+                    const m = row[COLS.rencontre];
+                    if (!matchData[m]) return;
+                    const joueurs = (row[COLS.action_joueur] || '').toString().split(';');
+                    const atts    = (row[COLS.action_att]    || '').toString().split(';');
+                    const defs    = (row[COLS.action_def]    || '').toString().split(';');
+                    joueurs.forEach((j, idx) => {
+                        if (j.trim() !== nom) return;
+                        const att = lastNonEmpty(atts, idx);
+                        const def = lastNonEmpty(defs, idx);
+                        if (isPositiveATT(att)) matchData[m].ap++;
+                        if (isNegativeATT(att)) matchData[m].am++;
+                        if (isPositiveDEF(def)) matchData[m].dp++;
+                        if (isNegativeDEF(def)) matchData[m].dm++;
+                    });
+                });
+                const played = MATCHS.filter(m => {
+                    const d = matchData[m];
+                    return d.ap + d.am + d.dp + d.dm > 0;
+                });
+                if (played.length > 0) {
+                    const noteATTArr = played.map(m => matchData[m].ap - matchData[m].am);
+                    const noteDEFArr = played.map(m => matchData[m].dp - matchData[m].dm);
+                    const totalArr   = played.map((_, i) => noteATTArr[i] + noteDEFArr[i]);
+                    const sorted     = [...totalArr].sort((a, b) => a - b);
+                    const mid        = Math.floor(sorted.length / 2);
+                    const median     = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+                    const n          = totalArr.length;
+                    const xMean      = (n - 1) / 2;
+                    const yMean      = totalArr.reduce((s, v) => s + v, 0) / n;
+                    let num = 0, den = 0;
+                    totalArr.forEach((v, i) => { num += (i - xMean) * (v - yMean); den += (i - xMean) ** 2; });
+                    const slope     = den === 0 ? 0 : num / den;
+                    const intercept = yMean - slope * xMean;
+                    const trend     = played.map((_, i) => +(slope * i + intercept).toFixed(2));
+
+                    const tmpC = document.createElement('canvas');
+                    tmpC.width  = 800;
+                    tmpC.height = 300;
+                    tmpC.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+                    document.body.appendChild(tmpC);
+                    const tmpChart = new Chart(tmpC.getContext('2d'), {
+                        data: {
+                            labels: played,
+                            datasets: [
+                                { type: 'bar',  label: 'NOTE ATT', data: noteATTArr, backgroundColor: 'rgba(20,184,166,0.75)', borderColor: '#14B8A6', borderWidth: 1, order: 4 },
+                                { type: 'bar',  label: 'NOTE DEF', data: noteDEFArr, backgroundColor: 'rgba(245,158,11,0.75)', borderColor: '#F59E0B', borderWidth: 1, order: 5 },
+                                { type: 'line', label: 'TOTAL',    data: totalArr,   borderColor: '#1E3A5F', backgroundColor: '#1E3A5F', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#1E3A5F', tension: 0.3, order: 1 },
+                                { type: 'line', label: 'Médiane',  data: played.map(() => median), borderColor: '#94A3B8', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, order: 2 },
+                                { type: 'line', label: 'Tendance', data: trend,      borderColor: '#60A5FA', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, order: 3 },
+                                { type: 'line', label: '__zero__', data: played.map(() => 0), borderColor: '#1E3A5F', borderWidth: 1, pointRadius: 0, order: 6 },
+                            ],
+                        },
+                        options: {
+                            animation: { duration: 0 },
+                            responsive: false,
+                            plugins: {
+                                title: { display: true, text: `Notes par rencontre — ${nom}`, font: { size: 16, weight: 'bold', family: 'Bebas Neue' }, color: '#1E3A5F', padding: { bottom: 10 } },
+                                legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14, usePointStyle: true, filter: item => item.text !== '__zero__' } },
+                            },
+                            scales: {
+                                x: { ticks: { font: { size: 11 }, maxRotation: 30 }, grid: { display: false } },
+                                y: { title: { display: true, text: 'Note' }, grid: { color: '#F1F5F9' }, afterDataLimits(s) { s.max += 1; s.min -= 1; } },
+                            },
+                        },
+                    });
+                    const graphImg = tmpC.toDataURL('image/png');
+                    tmpChart.destroy();
+                    document.body.removeChild(tmpC);
+                    graphImgHTML = `
+                        <div style="margin:16px 0;page-break-inside:avoid">
+                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">PROGRESSION DES NOTES</div>
+                            <img src="${graphImg}" style="width:100%;border-radius:8px;border:1px solid #E2E8F0"/>
+                        </div>`;
+                }
+            } catch(e) { console.warn('PDF graph error:', e); }
+
+            // === 3. Impact canvases (offscreen) ===
+            let impactHTML = '';
+            try {
+                const impactRows = DATA.filter(row => {
+                    if (row[COLS.club] !== 'FENIX') return false;
+                    if (matchFilter && row[COLS.rencontre] !== matchFilter) return false;
+                    if (!['But', 'Tir raté'].includes(row[COLS.resultat])) return false;
+                    if (!row[COLS.impact] || !String(row[COLS.impact]).includes(';')) return false;
+                    return matchPlayerName((row[COLS.joueur] || '').toString().trim(), nom);
+                });
+                const drawOffscreen = (img, data, w, h) => {
+                    const c   = document.createElement('canvas');
+                    c.width   = w; c.height = h;
+                    const ctx = c.getContext('2d');
+                    ctx.clearRect(0, 0, w, h);
+                    let dx = 0, dy = 0, dw = w, dh = h;
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        const ar  = img.naturalWidth / img.naturalHeight;
+                        const car = w / h;
+                        if (ar > car) { dh = w / ar; dy = (h - dh) / 2; }
+                        else          { dw = h * ar;  dx = (w - dw) / 2; }
+                        ctx.drawImage(img, dx, dy, dw, dh);
+                    } else {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.fillRect(0, 0, w, h);
+                    }
+                    data.forEach(row => {
+                        const parts = String(row[COLS.impact]).split(';');
+                        const x = parseFloat(parts[0]), y = parseFloat(parts[1]);
+                        if (isNaN(x) || isNaN(y)) return;
+                        const dotX = dx + (x / 100) * dw;
+                        const dotY = dy + (y / 100) * dh;
+                        const s    = 5;
+                        ctx.save();
+                        if (row[COLS.resultat] === 'But') {
+                            ctx.beginPath(); ctx.arc(dotX, dotY, s, 0, Math.PI * 2);
+                            ctx.fillStyle = '#10B981'; ctx.fill();
+                            ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.stroke();
+                        } else {
+                            const sc = s / Math.SQRT2;
+                            ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(dotX - sc, dotY - sc); ctx.lineTo(dotX + sc, dotY + sc);
+                            ctx.moveTo(dotX + sc, dotY - sc); ctx.lineTo(dotX - sc, dotY + sc);
+                            ctx.stroke();
+                        }
+                        ctx.restore();
+                    });
+                    return c.toDataURL('image/png');
+                };
+                const total = impactRows.length;
+                const buts  = impactRows.filter(r => r[COLS.resultat] === 'But').length;
+                if (total > 0) {
+                    const imgALG  = drawOffscreen(IMPACT_IMAGES.alg,  impactRows.filter(r => getImpactView(r) === 'alg'),  300, 200);
+                    const imgFace = drawOffscreen(IMPACT_IMAGES.face, impactRows.filter(r => getImpactView(r) === 'face'), 300, 200);
+                    const imgALD  = drawOffscreen(IMPACT_IMAGES.ald,  impactRows.filter(r => getImpactView(r) === 'ald'),  300, 200);
+                    const pct     = Math.round(buts / total * 100);
+                    impactHTML = `
+                        <div style="margin:16px 0;page-break-inside:avoid">
+                            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">ZONES DE TIR — ${buts}/${total} (${pct}%)</div>
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                                <div style="text-align:center">
+                                    <img src="${imgALG}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/>
+                                    <div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div>
+                                </div>
+                                <div style="text-align:center">
+                                    <img src="${imgFace}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/>
+                                    <div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">CENTRAL</div>
+                                </div>
+                                <div style="text-align:center">
+                                    <img src="${imgALD}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/>
+                                    <div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT DROIT</div>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+            } catch(e) { console.warn('PDF impact error:', e); }
+
             const printZone = document.getElementById('joueur-print-zone');
             printZone.innerHTML =
                 '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>' +
                 panel.outerHTML +
-                matches.outerHTML;
+                actionCardHTML +
+                matches.outerHTML +
+                graphImgHTML +
+                impactHTML;
 
             window.addEventListener('afterprint', function cleanup() {
                 printZone.innerHTML = '';

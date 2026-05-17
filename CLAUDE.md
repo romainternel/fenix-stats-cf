@@ -90,6 +90,25 @@ GB:  hi=35, mid=30   (% arrêts)
 - **XPS Slideline** — outil d'analyse vidéo/stats pour le handball
 - **Hudl, Statsbomb, InStat** — références analytics sport collectif général
 
+## Agents BMAD
+
+Agents globaux disponibles dans `C:\Users\gromi\.claude\agents\` :
+
+| Commande | Agent | Rôle |
+|----------|-------|------|
+| "joue le Research Analyst" | `research-analyst.md` | Benchmark, challenge d'utilité, stats handball de référence |
+| "joue le Brainstormer" | `brainstormer.md` | Idées sans filtre, inspiration cross-sport, vision 12 mois |
+| "joue l'Analyst" | `analyst.md` | Brief, vision, cadrage du besoin |
+| "joue le PM" | `product-manager.md` | PRD, features, priorités, critères d'acceptation |
+| "joue le Designer" | `designer.md` | Maquettes ASCII, UX iPad, ergonomie |
+| "joue l'Architect" | `architect.md` | Décisions techniques, impact sur le code existant |
+| "joue le Scrum Master" | `scrum-master.md` | Découpage en stories atomiques |
+| "joue le Developer" | `developer.md` | Implémentation des stories |
+| "joue le QA" | `qa.md` | Validation, tests, feu vert pour git push |
+
+Carte visuelle des agents : `agents-reference.html` (ouvrir dans le navigateur)
+Livrables dans `docs/` (à créer) : `brief.md`, `prd.md`, `architecture.md`, `design/`, `stories/`, `qa/`, `research/`, `brainstorm/`
+
 ## Contexte de travail
 
 - L'utilisateur préfère communiquer en **français**
@@ -98,6 +117,17 @@ GB:  hi=35, mid=30   (% arrêts)
 ## État du projet / Roadmap
 
 *(À mettre à jour à chaque session)*
+
+### Session du 12/05/2026 — Ce qui a été fait
+- Création du CLAUDE.md (ce fichier)
+- GitHub CLI installé, repo créé : https://github.com/romainternel/fenix-stats-cf
+- GitHub Pages activé : https://romainternel.github.io/fenix-stats-cf/
+- Écran de connexion ajouté (mot de passe : Partage)
+- Logo FENIX ajouté en favicon et sur l'écran de login
+- 9 agents BMAD créés dans `C:\Users\gromi\.claude\agents\`
+- Carte visuelle agents : `agents-reference.html`
+- Agent schedulé lancé (audit Research+Brainstorm+Analyst) → mail à romainternel@gmail.com
+  - Routine : https://claude.ai/code/routines/trig_01DAHvF3cUTL4KM7XqoeAUu5
 
 ### Fonctionnalités implémentées
 - Import Excel multi-feuilles (données + joueurs + temps de jeu)
