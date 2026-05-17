@@ -683,7 +683,7 @@
                     img.crossOrigin = 'anonymous';
                     img.onload  = () => res(img);
                     img.onerror = () => res(null);
-                    img.src = src;
+                    img.src = src + '?pdf=1'; // force nouveau fetch avec headers CORS
                 });
                 const [imgALG, imgFace, imgALD] = await Promise.all([
                     loadCORS('ALG.png'),
@@ -760,14 +760,24 @@
                 }
             } catch(e) { console.error('PDF impact error:', e); }
 
+            const header    = '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>';
+            const noImpact  = '<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d\'impact</div>';
+
             const printZone = document.getElementById('joueur-print-zone');
-            printZone.innerHTML =
-                '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>' +
-                panel.outerHTML +
-                actionCardHTML +
-                matches.outerHTML +
-                graphImgHTML +
-                impactHTML;
+            printZone.innerHTML = `
+                <div class="pdf-page">
+                    ${header}
+                    ${panel.outerHTML}
+                    ${actionCardHTML}
+                </div>
+                <div class="pdf-page">
+                    ${matches.outerHTML}
+                    ${graphImgHTML}
+                </div>
+                <div>
+                    ${header}
+                    ${impactHTML || noImpact}
+                </div>`;
 
             window.addEventListener('afterprint', function cleanup() {
                 printZone.innerHTML = '';
