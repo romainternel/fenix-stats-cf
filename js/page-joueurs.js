@@ -601,137 +601,140 @@
                     </div>
                 </div>`;
 
-            // === 2. Note graph — offscreen Chart.js (animation:false, responsive:false) ===
+            // === 2. Note graph — canvas 2D pur (pas de Chart.js) ===
             let graphImgHTML = '';
-            try {
+            {
                 const matchData = {};
-                MATCHS.forEach(m => matchData[m] = { ap: 0, am: 0, dp: 0, dm: 0 });
+                MATCHS.forEach(m => matchData[m] = { ap:0, am:0, dp:0, dm:0 });
                 DATA.forEach(row => {
                     const m = row[COLS.rencontre];
                     if (!matchData[m]) return;
-                    (row[COLS.action_joueur] || '').toString().split(';').forEach((j, idx) => {
+                    (row[COLS.action_joueur]||'').toString().split(';').forEach((j,idx) => {
                         if (!matchPlayerName(j.trim(), nom)) return;
-                        const att = lastNonEmpty((row[COLS.action_att] || '').toString().split(';'), idx);
-                        const def = lastNonEmpty((row[COLS.action_def] || '').toString().split(';'), idx);
+                        const att = lastNonEmpty((row[COLS.action_att]||'').toString().split(';'), idx);
+                        const def = lastNonEmpty((row[COLS.action_def]||'').toString().split(';'), idx);
                         if (isPositiveATT(att)) matchData[m].ap++;
                         if (isNegativeATT(att)) matchData[m].am++;
                         if (isPositiveDEF(def)) matchData[m].dp++;
                         if (isNegativeDEF(def)) matchData[m].dm++;
                     });
                 });
-                const played = MATCHS.filter(m => { const d = matchData[m]; return d.ap+d.am+d.dp+d.dm > 0; });
+                const played = MATCHS.filter(m => { const d=matchData[m]; return d.ap+d.am+d.dp+d.dm>0; });
                 if (played.length > 0) {
-                    const noteATTArr = played.map(m => matchData[m].ap - matchData[m].am);
-                    const noteDEFArr = played.map(m => matchData[m].dp - matchData[m].dm);
-                    const totalArr   = played.map((_, i) => noteATTArr[i] + noteDEFArr[i]);
-                    const sorted = [...totalArr].sort((a, b) => a - b);
-                    const mid    = Math.floor(sorted.length / 2);
-                    const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
-                    const xMean  = (totalArr.length - 1) / 2;
-                    const yMean  = totalArr.reduce((s, v) => s + v, 0) / totalArr.length;
-                    let num = 0, den = 0;
-                    totalArr.forEach((v, i) => { num += (i - xMean) * (v - yMean); den += (i - xMean) ** 2; });
-                    const slope = den === 0 ? 0 : num / den;
-                    const trend = played.map((_, i) => +(slope * i + (yMean - slope * xMean)).toFixed(2));
-
-                    const tmpC = document.createElement('canvas');
-                    tmpC.width = 800; tmpC.height = 280;
-                    tmpC.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
-                    document.body.appendChild(tmpC);
-                    const tmpChart = new Chart(tmpC.getContext('2d'), {
-                        data: {
-                            labels: played,
-                            datasets: [
-                                { type:'bar',  label:'NOTE ATT', data:noteATTArr, backgroundColor:'rgba(20,184,166,0.75)', borderColor:'#14B8A6', borderWidth:1, order:4 },
-                                { type:'bar',  label:'NOTE DEF', data:noteDEFArr, backgroundColor:'rgba(245,158,11,0.75)', borderColor:'#F59E0B', borderWidth:1, order:5 },
-                                { type:'line', label:'TOTAL',    data:totalArr,   borderColor:'#1E3A5F', backgroundColor:'#1E3A5F', borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#1E3A5F', tension:0.3, order:1 },
-                                { type:'line', label:'Médiane',  data:played.map(()=>median), borderColor:'#94A3B8', borderWidth:1.5, borderDash:[6,4], pointRadius:0, order:2 },
-                                { type:'line', label:'Tendance', data:trend, borderColor:'#60A5FA', borderWidth:1.5, borderDash:[3,3], pointRadius:0, order:3 },
-                                { type:'line', label:'__zero__', data:played.map(()=>0), borderColor:'#1E3A5F', borderWidth:1, pointRadius:0, order:6 },
-                            ],
-                        },
-                        options: {
-                            animation: false,
-                            responsive: false,
-                            plugins: {
-                                title: { display:true, text:`Notes par rencontre — ${nom}`, font:{size:16,weight:'bold',family:'Bebas Neue'}, color:'#1E3A5F', padding:{bottom:10} },
-                                legend: { position:'bottom', labels:{font:{size:11},padding:14,usePointStyle:true,filter:item=>item.text!=='__zero__'} },
-                            },
-                            scales: {
-                                x: { ticks:{font:{size:11},maxRotation:30}, grid:{display:false} },
-                                y: { title:{display:true,text:'Note'}, grid:{color:'#F1F5F9'}, afterDataLimits(s){s.max+=1;s.min-=1;} },
-                            },
-                        },
+                    const noteA = played.map(m => matchData[m].ap - matchData[m].am);
+                    const noteD = played.map(m => matchData[m].dp - matchData[m].dm);
+                    const tot   = played.map((_,i) => noteA[i]+noteD[i]);
+                    const W=800, H=260;
+                    const pl={t:36,r:20,b:52,l:40};
+                    const cW=W-pl.l-pl.r, cH=H-pl.t-pl.b;
+                    const allV=[...noteA,...noteD,...tot,0];
+                    const maxV=Math.max(...allV)+2, minV=Math.min(...allV)-2;
+                    const rng=maxV-minV;
+                    const toY = v => pl.t + cH - ((v-minV)/rng)*cH;
+                    const slotW = cW/played.length;
+                    const bW = slotW*0.28;
+                    const cx = i => pl.l + (i+0.5)*slotW;
+                    const c=document.createElement('canvas'); c.width=W; c.height=H;
+                    const ctx=c.getContext('2d');
+                    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+                    // Grid
+                    for(let v=Math.ceil(minV);v<=Math.floor(maxV);v++){
+                        if(v%2!==0) continue;
+                        const y=toY(v);
+                        ctx.strokeStyle='#F1F5F9'; ctx.lineWidth=1;
+                        ctx.beginPath(); ctx.moveTo(pl.l,y); ctx.lineTo(pl.l+cW,y); ctx.stroke();
+                        ctx.fillStyle='#94A3B8'; ctx.font='10px Inter,sans-serif';
+                        ctx.textAlign='right'; ctx.fillText(v,pl.l-4,y+3);
+                    }
+                    // Zero line
+                    const y0=toY(0);
+                    ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(pl.l,y0); ctx.lineTo(pl.l+cW,y0); ctx.stroke();
+                    // Bars ATT
+                    noteA.forEach((v,i)=>{
+                        const bh=Math.abs(toY(v)-y0);
+                        ctx.fillStyle='rgba(20,184,166,0.8)';
+                        ctx.fillRect(cx(i)-bW*1.05, Math.min(toY(v),y0), bW, bh||1);
                     });
-                    const graphImg = tmpC.toDataURL('image/png');
-                    tmpChart.destroy();
-                    document.body.removeChild(tmpC);
+                    // Bars DEF
+                    noteD.forEach((v,i)=>{
+                        const bh=Math.abs(toY(v)-y0);
+                        ctx.fillStyle='rgba(245,158,11,0.8)';
+                        ctx.fillRect(cx(i)+0.05*bW, Math.min(toY(v),y0), bW, bh||1);
+                    });
+                    // Total line
+                    ctx.strokeStyle='#1E3A5F'; ctx.lineWidth=2.5;
+                    ctx.beginPath();
+                    tot.forEach((v,i)=>{ i===0?ctx.moveTo(cx(i),toY(v)):ctx.lineTo(cx(i),toY(v)); });
+                    ctx.stroke();
+                    tot.forEach((v,i)=>{
+                        ctx.beginPath(); ctx.arc(cx(i),toY(v),4,0,Math.PI*2);
+                        ctx.fillStyle='#1E3A5F'; ctx.fill();
+                        // Value label
+                        ctx.fillStyle='#1E3A5F'; ctx.font='bold 10px Inter,sans-serif';
+                        ctx.textAlign='center'; ctx.fillText((v>=0?'+':'')+v, cx(i), toY(v)-7);
+                    });
+                    // X labels
+                    ctx.fillStyle='#334155'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='center';
+                    played.forEach((m,i)=>{ ctx.fillText(m.split(' ')[0], cx(i), H-pl.b+14); });
+                    // Title
+                    ctx.fillStyle='#1E3A5F'; ctx.font='bold 14px Inter,sans-serif';
+                    ctx.textAlign='center'; ctx.fillText(`Notes par rencontre — ${nom}`, W/2, 20);
+                    // Legend
+                    const ly=H-8;
+                    ctx.fillStyle='rgba(20,184,166,0.8)'; ctx.fillRect(pl.l,ly-9,12,10);
+                    ctx.fillStyle='#334155'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='left';
+                    ctx.fillText('NOTE ATT',pl.l+15,ly);
+                    ctx.fillStyle='rgba(245,158,11,0.8)'; ctx.fillRect(pl.l+80,ly-9,12,10);
+                    ctx.fillText('NOTE DEF',pl.l+95,ly);
+                    ctx.strokeStyle='#1E3A5F'; ctx.lineWidth=2;
+                    ctx.beginPath(); ctx.moveTo(pl.l+175,ly-4); ctx.lineTo(pl.l+187,ly-4); ctx.stroke();
+                    ctx.fillText('TOTAL',pl.l+191,ly);
                     graphImgHTML = `
-                        <div style="margin:16px 0;page-break-inside:avoid">
+                        <div style="margin:16px 0">
                             <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">PROGRESSION DES NOTES</div>
-                            <img src="${graphImg}" style="width:100%;border-radius:8px;border:1px solid #E2E8F0"/>
+                            <img src="${c.toDataURL('image/png')}" style="width:100%;border-radius:8px;border:1px solid #E2E8F0"/>
                         </div>`;
                 }
-            } catch(e) { console.warn('PDF graph error:', e); }
+            }
 
-            // === 3. Impact — images rechargées avec crossOrigin pour éviter le taint canvas ===
+            // === 3. Impact — canvas 2D pur, sans image de fond (pas de CORS) ===
             let impactHTML = '';
-            try {
-                // Charger les images de fond avec CORS pour que toDataURL() fonctionne
-                const loadCORS = src => new Promise(res => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload  = () => res(img);
-                    img.onerror = () => res(null);
-                    img.src = src + '?pdf=1'; // force nouveau fetch avec headers CORS
-                });
-                const [imgALG, imgFace, imgALD] = await Promise.all([
-                    loadCORS('ALG.png'),
-                    loadCORS('TERRAIN HB TIR.png'),
-                    loadCORS('ALD.png'),
-                ]);
-
-                // Filtre données : joueur de champ → tirs FENIX / GB → tirs adverses (gardien)
+            {
                 const impactRows = isGB
                     ? DATA.filter(row =>
                         row[COLS.club] !== 'FENIX' &&
-                        (row[COLS.finalite] === 'Tir arrêté' || row[COLS.resultat] === 'But') &&
+                        (row[COLS.finalite]==='Tir arrêté' || row[COLS.resultat]==='But') &&
                         row[COLS.impact] && String(row[COLS.impact]).includes(';') &&
-                        matchPlayerName((row[COLS.gardien] || '').toString().trim(), nom)
+                        matchPlayerName((row[COLS.gardien]||'').toString().trim(), nom)
                     )
                     : DATA.filter(row =>
                         row[COLS.club] === 'FENIX' &&
-                        ['But', 'Tir raté'].includes(row[COLS.resultat]) &&
+                        ['But','Tir raté'].includes(row[COLS.resultat]) &&
                         row[COLS.impact] && String(row[COLS.impact]).includes(';') &&
-                        matchPlayerName((row[COLS.joueur] || '').toString().trim(), nom)
+                        matchPlayerName((row[COLS.joueur]||'').toString().trim(), nom)
                     );
 
-                const drawOS = (img, data, w, h) => {
-                    const c = document.createElement('canvas');
-                    c.width = w; c.height = h;
-                    const ctx = c.getContext('2d');
-                    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0, 0, w, h);
-                    let dx=0, dy=0, dw=w, dh=h;
-                    if (img && img.naturalWidth > 0) {
-                        const ar=img.naturalWidth/img.naturalHeight, car=w/h;
-                        if (ar>car){dh=w/ar;dy=(h-dh)/2;}else{dw=h*ar;dx=(w-dw)/2;}
-                        ctx.drawImage(img, dx, dy, dw, dh);
-                    }
+                const drawOS = (data, W, H) => {
+                    const c=document.createElement('canvas'); c.width=W; c.height=H;
+                    const ctx=c.getContext('2d');
+                    ctx.fillStyle='#EFF6FF'; ctx.fillRect(0,0,W,H);
+                    ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=1; ctx.strokeRect(0.5,0.5,W-1,H-1);
                     data.forEach(row => {
                         const p=String(row[COLS.impact]).split(';');
-                        const x=parseFloat(p[0]),y=parseFloat(p[1]);
+                        const x=parseFloat(p[0]), y=parseFloat(p[1]);
                         if(isNaN(x)||isNaN(y)) return;
-                        const dotX=dx+(x/100)*dw, dotY=dy+(y/100)*dh, s=6;
+                        const dotX=(x/100)*W, dotY=(y/100)*H, s=7;
                         ctx.save();
-                        const isPositive = isGB ? row[COLS.finalite]==='Tir arrêté' : row[COLS.resultat]==='But';
-                        if(isPositive){
-                            ctx.beginPath();ctx.arc(dotX,dotY,s,0,Math.PI*2);
-                            ctx.fillStyle='#10B981';ctx.fill();
-                            ctx.strokeStyle='white';ctx.lineWidth=1.5;ctx.stroke();
+                        const isPos = isGB ? row[COLS.finalite]==='Tir arrêté' : row[COLS.resultat]==='But';
+                        if(isPos){
+                            ctx.beginPath(); ctx.arc(dotX,dotY,s,0,Math.PI*2);
+                            ctx.fillStyle='#10B981'; ctx.fill();
+                            ctx.strokeStyle='white'; ctx.lineWidth=1.5; ctx.stroke();
                         } else {
-                            const sc=s/Math.SQRT2;ctx.strokeStyle='#EF4444';ctx.lineWidth=2.5;
-                            ctx.beginPath();ctx.moveTo(dotX-sc,dotY-sc);ctx.lineTo(dotX+sc,dotY+sc);
-                            ctx.moveTo(dotX+sc,dotY-sc);ctx.lineTo(dotX-sc,dotY+sc);ctx.stroke();
+                            const sc=s/Math.SQRT2; ctx.strokeStyle='#EF4444'; ctx.lineWidth=2.5;
+                            ctx.beginPath(); ctx.moveTo(dotX-sc,dotY-sc); ctx.lineTo(dotX+sc,dotY+sc);
+                            ctx.moveTo(dotX+sc,dotY-sc); ctx.lineTo(dotX-sc,dotY+sc); ctx.stroke();
                         }
                         ctx.restore();
                     });
@@ -744,12 +747,14 @@
                     : impactRows.filter(r=>r[COLS.resultat]==='But').length;
                 if (total > 0) {
                     const pct   = Math.round(positifs/total*100);
-                    const titre = isGB ? `ZONES D'ARRÊT — ${positifs} arrêts / ${total} tirs (${pct}%)` : `ZONES DE TIR — ${positifs}/${total} (${pct}%)`;
-                    const dALG  = drawOS(imgALG,  impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200);
-                    const dFace = drawOS(imgFace, impactRows.filter(r=>getImpactView(r)==='face'), 320, 200);
-                    const dALD  = drawOS(imgALD,  impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200);
+                    const titre = isGB
+                        ? `ZONES D'ARRÊT — ${positifs} arrêts / ${total} tirs (${pct}%)`
+                        : `ZONES DE TIR — ${positifs} buts / ${total} tirs (${pct}%)`;
+                    const dALG  = drawOS(impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200);
+                    const dFace = drawOS(impactRows.filter(r=>getImpactView(r)==='face'), 320, 200);
+                    const dALD  = drawOS(impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200);
                     impactHTML = `
-                        <div style="margin:16px 0;page-break-inside:avoid">
+                        <div style="margin:16px 0">
                             <div style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:#0A2463;margin-bottom:6px;letter-spacing:1.5px">${titre}</div>
                             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
                                 <div style="text-align:center"><img src="${dALG}" style="width:100%;border-radius:6px;border:1px solid #E2E8F0"/><div style="font-size:0.72rem;color:#64748B;margin-top:3px;font-weight:600">EXT GAUCHE</div></div>
@@ -758,7 +763,7 @@
                             </div>
                         </div>`;
                 }
-            } catch(e) { console.error('PDF impact error:', e); }
+            }
 
             const header    = '<div class="print-fenix-header">FENIX HANDBALL — Centre de Formation</div>';
             const noImpact  = '<div style="color:#94a3b8;text-align:center;padding:60px 0;font-size:0.9rem">Aucune donnée de tir avec coordonnées d\'impact</div>';
