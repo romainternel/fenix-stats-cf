@@ -1718,3 +1718,176 @@
             color: #64748B; letter-spacing: 0.5px;
         }
         .pa-accounts-table tr:not(:first-child) { border-top: 1px solid #F1F5F9; }
+
+        /* ── Fiche joueur (mode joueur) — 3 encarts ─────────────────────────── */
+        #pm-fiche-page {
+            padding: 70px 16px 30px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .pmf-header {
+            border-radius: 12px;
+            padding: 1.2rem 1.4rem;
+            display: flex; align-items: center; gap: 1.2rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .pmf-avatar {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem;
+            color: #fff; flex-shrink: 0;
+        }
+
+        .pmf-player-name {
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+            letter-spacing: 1.5px; line-height: 1;
+        }
+
+        .pmf-player-poste {
+            font-size: 0.8rem; opacity: 0.85; margin-top: 2px; font-weight: 500;
+        }
+
+        .pmf-meta {
+            display: flex; gap: 0.8rem; margin-top: 4px; flex-wrap: wrap;
+        }
+
+        .pmf-meta-item {
+            font-size: 0.75rem; opacity: 0.8;
+        }
+
+        .pmf-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+
+        .pmf-card-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.05rem; letter-spacing: 1.5px;
+            color: #0A2463; margin-bottom: 1rem;
+        }
+
+        .pmf-card-header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem;
+        }
+
+        .pmf-card-header-row .pmf-card-title { margin-bottom: 0; }
+
+        /* KPI Stats */
+        .pmf-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.6rem;
+        }
+
+        .pmf-kpi-5 { grid-template-columns: repeat(5, 1fr); }
+
+        @media (max-width: 640px) {
+            .pmf-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+            .pmf-kpi-5    { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .pmf-kpi-box {
+            background: #F8FAFC; border-radius: 10px;
+            padding: 0.75rem 0.4rem; text-align: center;
+        }
+
+        .pmf-kpi-val {
+            font-size: 1.5rem; font-weight: 800;
+            color: #0F172A; line-height: 1.1;
+        }
+
+        .pmf-kpi-lbl {
+            font-size: 0.6rem; color: #64748B;
+            font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 3px;
+        }
+
+        /* Notes */
+        .pmf-notes-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 0.7rem; margin-bottom: 0.8rem;
+        }
+
+        .pmf-note-box {
+            border-radius: 10px; padding: 1rem;
+            text-align: center;
+        }
+
+        .pmf-note-val {
+            font-size: 2rem; font-weight: 800; line-height: 1;
+        }
+
+        .pmf-note-lbl {
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-top: 3px;
+        }
+
+        .pmf-note-att-plus  { background: #D1FAE5; }
+        .pmf-note-att-plus .pmf-note-val  { color: #059669; }
+        .pmf-note-att-plus .pmf-note-lbl  { color: #065F46; }
+
+        .pmf-note-att-moins { background: #FEE2E2; }
+        .pmf-note-att-moins .pmf-note-val { color: #DC2626; }
+        .pmf-note-att-moins .pmf-note-lbl { color: #7F1D1D; }
+
+        .pmf-note-def-plus  { background: #DBEAFE; }
+        .pmf-note-def-plus .pmf-note-val  { color: #1D4ED8; }
+        .pmf-note-def-plus .pmf-note-lbl  { color: #1E3A8A; }
+
+        .pmf-note-def-moins { background: #FEF3C7; }
+        .pmf-note-def-moins .pmf-note-val { color: #D97706; }
+        .pmf-note-def-moins .pmf-note-lbl { color: #78350F; }
+
+        .pmf-note-total {
+            text-align: center; font-size: 0.85rem; color: #64748B;
+            padding-top: 0.5rem; border-top: 1px solid #F1F5F9;
+        }
+
+        /* Impact canvases */
+        .pmf-canvases {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+        }
+
+        @media (max-width: 500px) { .pmf-canvases { grid-template-columns: 1fr; } }
+
+        .pmf-canvas-wrap { text-align: center; }
+
+        .pmf-canvas-wrap canvas {
+            width: 100%; display: block;
+            border-radius: 6px; border: 1px solid #E2E8F0;
+        }
+
+        .pmf-canvas-lbl {
+            font-size: 0.68rem; color: #64748B;
+            font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 4px;
+        }
+
+        .pmf-zone-sel {
+            padding: 0.35rem 0.7rem;
+            border: 1px solid #CBD5E1; border-radius: 8px;
+            font-family: 'Inter', sans-serif; font-size: 0.8rem;
+            background: #fff; color: #0F172A; cursor: pointer;
+        }
+
+        .pmf-legend {
+            font-size: 0.75rem; color: #64748B; white-space: nowrap;
+        }
+
+        .pmf-legend-dot { font-size: 0.85rem; }
+        .pmf-legend-green { color: #10B981; }
+        .pmf-legend-red   { color: #EF4444; }
+
+        .pmf-no-impact {
+            text-align: center; color: #94a3b8;
+            font-size: 0.85rem; padding: 20px 0;
+        }

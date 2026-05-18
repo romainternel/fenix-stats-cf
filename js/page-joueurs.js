@@ -360,13 +360,7 @@
 
         // ── Joueurs page update ────────────────────────────────────────────────
         function updateJoueursPage() {
-            if (typeof isPlayerMode === 'function' && isPlayerMode()) {
-                const terrain = document.querySelector('.joueur-terrain-section');
-                if (terrain) terrain.style.display = 'none';
-                const nom = typeof getSessionPlayerNom === 'function' ? getSessionPlayerNom() : null;
-                if (nom) selectJoueur(nom);
-                return;
-            }
+            if (typeof isPlayerMode === 'function' && isPlayerMode()) return;
 
             const warningDiv = document.getElementById('joueur-name-warnings');
             if (warningDiv) {
