@@ -686,10 +686,23 @@
                 }
             }
 
-            // === 3. Impact — canvas DOM direct ===
+            // === 3. Impact — canvas DOM direct avec image de fond base64 ===
             let impactCanvases = null;
             let impactTitre = '';
             {
+                // Précharger les 3 images de but (base64 embarqué → pas de CORS)
+                const loadImg = b64 => new Promise(res => {
+                    const img = new Image();
+                    img.onload = () => res(img);
+                    img.onerror = () => res(null);
+                    img.src = b64;
+                });
+                const [imgALG, imgFace, imgALD] = await Promise.all([
+                    loadImg(IMPACT_B64.alg),
+                    loadImg(IMPACT_B64.face),
+                    loadImg(IMPACT_B64.ald),
+                ]);
+
                 const impactRows = isGB
                     ? DATA.filter(row =>
                         row[COLS.club] !== 'FENIX' &&
@@ -704,32 +717,30 @@
                         matchPlayerName((row[COLS.joueur]||'').toString().trim(), nom)
                     );
 
-                const drawOS = (data, W, H) => {
+                const drawOS = (data, W, H, bgImg) => {
                     const c=document.createElement('canvas'); c.width=W; c.height=H;
                     c.style.cssText='width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0';
                     const ctx=c.getContext('2d');
-                    // Fond extérieur
-                    ctx.fillStyle='#DBEAFE'; ctx.fillRect(0,0,W,H);
-                    // Cadre du but
-                    const gX=10, gY=8, gW=W-20, gH=H-24;
-                    // Intérieur du but (blanc)
-                    ctx.fillStyle='#FFFFFF'; ctx.fillRect(gX,gY,gW,gH);
-                    // Lignes de filet
-                    ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=0.5;
-                    for(let i=1;i<6;i++){ctx.beginPath();ctx.moveTo(gX+gW*i/6,gY);ctx.lineTo(gX+gW*i/6,gY+gH);ctx.stroke();}
-                    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(gX,gY+gH*i/4);ctx.lineTo(gX+gW,gY+gH*i/4);ctx.stroke();}
-                    // Poteaux + barre transversale
-                    ctx.strokeStyle='#1E293B'; ctx.lineWidth=4;
-                    ctx.beginPath(); ctx.moveTo(gX,gY+gH); ctx.lineTo(gX,gY); ctx.lineTo(gX+gW,gY); ctx.lineTo(gX+gW,gY+gH); ctx.stroke();
-                    // Ligne de sol
-                    ctx.strokeStyle='#64748B'; ctx.lineWidth=2;
-                    ctx.beginPath(); ctx.moveTo(gX-5,gY+gH); ctx.lineTo(gX+gW+5,gY+gH); ctx.stroke();
-                    // Points
+                    if (bgImg) {
+                        ctx.drawImage(bgImg, 0, 0, W, H);
+                    } else {
+                        // Fallback : cadre du but dessiné
+                        ctx.fillStyle='#DBEAFE'; ctx.fillRect(0,0,W,H);
+                        const gX=10,gY=8,gW=W-20,gH=H-24;
+                        ctx.fillStyle='#FFFFFF'; ctx.fillRect(gX,gY,gW,gH);
+                        ctx.strokeStyle='#CBD5E1'; ctx.lineWidth=0.5;
+                        for(let i=1;i<6;i++){ctx.beginPath();ctx.moveTo(gX+gW*i/6,gY);ctx.lineTo(gX+gW*i/6,gY+gH);ctx.stroke();}
+                        for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(gX,gY+gH*i/4);ctx.lineTo(gX+gW,gY+gH*i/4);ctx.stroke();}
+                        ctx.strokeStyle='#1E293B'; ctx.lineWidth=4;
+                        ctx.beginPath(); ctx.moveTo(gX,gY+gH); ctx.lineTo(gX,gY); ctx.lineTo(gX+gW,gY); ctx.lineTo(gX+gW,gY+gH); ctx.stroke();
+                        ctx.strokeStyle='#64748B'; ctx.lineWidth=2;
+                        ctx.beginPath(); ctx.moveTo(gX-5,gY+gH); ctx.lineTo(gX+gW+5,gY+gH); ctx.stroke();
+                    }
                     data.forEach(row => {
                         const p=String(row[COLS.impact]).split(';');
                         const x=parseFloat(p[0]), y=parseFloat(p[1]);
                         if(isNaN(x)||isNaN(y)) return;
-                        const dotX=gX+(x/100)*gW, dotY=gY+(y/100)*gH, s=7;
+                        const dotX=(x/100)*W, dotY=(y/100)*H, s=7;
                         ctx.save();
                         const isPos = isGB ? row[COLS.finalite]==='Tir arrêté' : row[COLS.resultat]==='But';
                         if(isPos){
@@ -756,9 +767,9 @@
                         ? `ZONES D'ARRÊT — ${positifs} arrêts / ${total} tirs (${pct}%)`
                         : `ZONES DE TIR — ${positifs} buts / ${total} tirs (${pct}%)`;
                     impactCanvases = {
-                        alg:  drawOS(impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200),
-                        face: drawOS(impactRows.filter(r=>getImpactView(r)==='face'), 320, 200),
-                        ald:  drawOS(impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200),
+                        alg:  drawOS(impactRows.filter(r=>getImpactView(r)==='alg'),  320, 200, imgALG),
+                        face: drawOS(impactRows.filter(r=>getImpactView(r)==='face'), 320, 200, imgFace),
+                        ald:  drawOS(impactRows.filter(r=>getImpactView(r)==='ald'),  320, 200, imgALD),
                     };
                 }
             }
