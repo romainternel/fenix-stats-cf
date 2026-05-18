@@ -20,18 +20,15 @@
         function setupPlayerUI() {
             document.body.classList.add('player-mode');
 
-            // Masquer header + nav staff
-            const staffHeader = document.querySelector('.header');
-            if (staffHeader) staffHeader.style.display = 'none';
-            const staffNav = document.querySelector('.nav');
-            if (staffNav) staffNav.style.display = 'none';
+            // Cacher tout le contenu staff d'un coup (important pour écraser tout override)
+            ['header', 'nav', 'main'].forEach(sel => {
+                const el = document.querySelector('.' + sel);
+                if (el) el.style.setProperty('display', 'none', 'important');
+            });
 
             // Masquer le bouton "Comptes joueurs" (staff only)
             const accountsBtn = document.getElementById('btn-player-accounts');
             if (accountsBtn) accountsBtn.style.display = 'none';
-
-            // Masquer toutes les pages staff
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
             // Afficher la barre mode joueur
             const bar = document.getElementById('pm-bar');
@@ -55,6 +52,10 @@
             document.querySelectorAll('.pm-tab-btn').forEach(b => {
                 b.classList.toggle('active', b.dataset.tab === tab);
             });
+
+            // Toujours s'assurer que le contenu staff reste caché
+            const mainEl = document.querySelector('.main');
+            if (mainEl) mainEl.style.setProperty('display', 'none', 'important');
 
             const ficheEl = document.getElementById('pm-fiche-page');
             const matchEl = document.getElementById('pm-match-page');
