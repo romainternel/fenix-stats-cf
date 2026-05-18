@@ -1477,7 +1477,16 @@
             letter-spacing: 2px;
         }
 
-        @page { size: A4 portrait; margin: 1.2cm; }
+        @page {
+            size: A4 landscape;
+            margin: 1cm 1.2cm;
+            @top-left   { content: none; }
+            @top-center { content: none; }
+            @top-right  { content: none; }
+            @bottom-left   { content: none; }
+            @bottom-center { content: none; }
+            @bottom-right  { content: none; }
+        }
 
         @media print {
             body > *:not(#joueur-print-zone) { display: none !important; }
