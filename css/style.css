@@ -1497,3 +1497,224 @@
             .jm-table-wrap { overflow: visible !important; }
             .pdf-page { break-after: page; page-break-after: always; }
         }
+
+        /* ── Player Mode ─────────────────────────────────────────────────────── */
+        #pm-bar {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: linear-gradient(135deg, #0A2463 0%, #1E3A8A 100%);
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.2rem;
+            z-index: 200;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+        }
+
+        .pm-logo {
+            display: flex; align-items: center; gap: 0.6rem;
+            color: #fff; font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.1rem; letter-spacing: 1.5px;
+        }
+
+        .pm-player-label {
+            color: rgba(255,255,255,0.7); font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.8px;
+        }
+
+        #pm-player-name {
+            color: #fff; font-size: 0.95rem; font-weight: 700;
+        }
+
+        .pm-tabs { display: flex; gap: 0.5rem; }
+
+        .pm-tab-btn {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+            padding: 0.35rem 0.9rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .pm-tab-btn.active, .pm-tab-btn:hover {
+            background: rgba(255,255,255,0.25);
+            color: #fff;
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .pm-logout-btn {
+            background: rgba(239,68,68,0.2);
+            border: 1px solid rgba(239,68,68,0.4);
+            color: #fca5a5;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .pm-logout-btn:hover {
+            background: rgba(239,68,68,0.35);
+            color: #fff;
+        }
+
+        /* Player mode main content offset when bar visible */
+        body.player-mode { padding-top: 56px; }
+
+        /* Match stats page (player mode) */
+        #pm-match-page {
+            display: none;
+            padding: 1.2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .pm-match-header {
+            display: flex; align-items: center; gap: 1rem;
+            margin-bottom: 1.2rem; flex-wrap: wrap;
+        }
+
+        .pm-match-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem; color: #0A2463; letter-spacing: 1.5px;
+        }
+
+        #pm-match-sel {
+            padding: 0.4rem 0.8rem;
+            border: 1px solid #CBD5E1; border-radius: 8px;
+            font-family: 'Inter', sans-serif; font-size: 0.85rem;
+            background: #fff; color: #0F172A; cursor: pointer;
+        }
+
+        .pm-cards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) { .pm-cards-grid { grid-template-columns: 1fr; } }
+
+        .pm-team-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .pm-team-title {
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .pm-dot {
+            width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        }
+
+        .pm-avg-lbl {
+            font-size: 0.72rem; color: #94a3b8; margin-left: auto;
+        }
+
+        .pm-stats-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;
+        }
+
+        .pm-stat-box {
+            background: #F8FAFC; border-radius: 8px;
+            padding: 0.6rem 0.4rem; text-align: center;
+        }
+
+        .pm-stat-val {
+            font-size: 1.3rem; font-weight: 800; color: #0F172A;
+            line-height: 1.1;
+        }
+
+        .pm-stat-lbl {
+            font-size: 0.62rem; color: #64748B;
+            font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-top: 2px;
+            line-height: 1.2;
+        }
+
+        /* Staff button — Comptes joueurs */
+        #btn-player-accounts {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: rgba(255,255,255,0.85);
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        #btn-player-accounts:hover { background: rgba(255,255,255,0.22); color: #fff; }
+
+        /* Player accounts modal */
+        #pa-modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55); z-index: 999;
+            align-items: center; justify-content: center;
+        }
+
+        .pa-modal-box {
+            background: #fff; border-radius: 14px;
+            padding: 1.6rem; width: 480px; max-width: 95vw;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .pa-modal-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.3rem; color: #0A2463; letter-spacing: 1.5px;
+            margin-bottom: 1.1rem;
+            border-bottom: 2px solid #0A2463; padding-bottom: 0.5rem;
+        }
+
+        .pa-form-row {
+            display: flex; gap: 0.6rem; align-items: flex-end; margin-bottom: 1rem;
+        }
+
+        .pa-form-row select, .pa-form-row input {
+            flex: 1; padding: 0.5rem 0.75rem;
+            border: 1px solid #CBD5E1; border-radius: 8px;
+            font-family: 'Inter', sans-serif; font-size: 0.85rem;
+        }
+
+        .pa-save-btn {
+            background: #0A2463; color: #fff;
+            border: none; border-radius: 8px;
+            padding: 0.5rem 1rem; cursor: pointer;
+            font-size: 0.85rem; font-weight: 700;
+            font-family: 'Inter', sans-serif; white-space: nowrap;
+        }
+        .pa-save-btn:hover { background: #1E3A8A; }
+
+        .pa-close-btn {
+            background: #F1F5F9; color: #475569;
+            border: none; border-radius: 8px;
+            padding: 0.5rem 1rem; cursor: pointer;
+            font-size: 0.85rem; font-weight: 600;
+            font-family: 'Inter', sans-serif;
+        }
+        .pa-close-btn:hover { background: #E2E8F0; }
+
+        .pa-accounts-table {
+            width: 100%; border-collapse: collapse; font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+        .pa-accounts-table th {
+            background: #F1F5F9; text-align: left;
+            padding: 6px 10px; font-size: 0.75rem;
+            font-weight: 700; text-transform: uppercase;
+            color: #64748B; letter-spacing: 0.5px;
+        }
+        .pa-accounts-table tr:not(:first-child) { border-top: 1px solid #F1F5F9; }

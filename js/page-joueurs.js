@@ -360,6 +360,14 @@
 
         // ── Joueurs page update ────────────────────────────────────────────────
         function updateJoueursPage() {
+            if (typeof isPlayerMode === 'function' && isPlayerMode()) {
+                const terrain = document.querySelector('.joueur-terrain-section');
+                if (terrain) terrain.style.display = 'none';
+                const nom = typeof getSessionPlayerNom === 'function' ? getSessionPlayerNom() : null;
+                if (nom) selectJoueur(nom);
+                return;
+            }
+
             const warningDiv = document.getElementById('joueur-name-warnings');
             if (warningDiv) {
                 const dupes = checkDuplicateNames();
@@ -379,7 +387,6 @@
                 const md = document.getElementById('joueur-matches');
                 if (md) md.style.display = 'none';
             }
-
         }
 
         // Modal Joueur

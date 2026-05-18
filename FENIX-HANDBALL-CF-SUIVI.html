@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="js/utils.js"></script>
     <script src="js/impact-images.js"></script>
+    <script src="js/player-mode.js"></script>
     <script src="js/page-joueurs.js"></script>
     <script src="js/page-notes-graph.js"></script>
     <script src="js/page-analyse.js"></script>
@@ -32,20 +33,35 @@
 
     <script>
         (function() {
-            if (sessionStorage.getItem('fenix_auth') === '1') {
+            const stored = sessionStorage.getItem('fenix_session');
+            if (stored) {
+                try { if (['staff','joueur'].includes(JSON.parse(stored).role))
+                    document.getElementById('login-screen').classList.add('hidden');
+                } catch(e) {}
+            } else if (sessionStorage.getItem('fenix_auth') === '1') {
                 document.getElementById('login-screen').classList.add('hidden');
             }
         })();
         function checkLogin() {
             const input = document.getElementById('login-input');
-            if (input.value === 'Partage') {
-                sessionStorage.setItem('fenix_auth', '1');
+            const pwd   = input.value;
+            if (pwd === 'Partage') {
+                sessionStorage.setItem('fenix_session', JSON.stringify({ role: 'staff', nom: null }));
                 document.getElementById('login-screen').classList.add('hidden');
             } else {
-                input.classList.add('error');
-                document.getElementById('login-error').textContent = 'Mot de passe incorrect';
-                setTimeout(() => input.classList.remove('error'), 400);
-                input.value = '';
+                const accounts = JSON.parse(localStorage.getItem('fenix_player_accounts') || '{}');
+                const playerNom = Object.keys(accounts).find(n => accounts[n] === pwd);
+                if (playerNom) {
+                    PLAYER_SESSION = { role: 'joueur', nom: playerNom };
+                    sessionStorage.setItem('fenix_session', JSON.stringify(PLAYER_SESSION));
+                    document.getElementById('login-screen').classList.add('hidden');
+                    setupPlayerUI();
+                } else {
+                    input.classList.add('error');
+                    document.getElementById('login-error').textContent = 'Mot de passe incorrect';
+                    setTimeout(() => input.classList.remove('error'), 400);
+                    input.value = '';
+                }
             }
         }
     </script>
@@ -71,6 +87,7 @@
             <button class="nav-btn" data-page="notegraph">📈 Graphiques</button>
             <button class="nav-btn" data-page="gardiens">🥅 Gardiens</button>
             <button class="nav-btn" data-page="impact">🎯 Impact</button>
+            <button id="btn-player-accounts" onclick="openPlayerAccountsModal()">🔑 Comptes joueurs</button>
         </nav>
     </header>
 
@@ -1197,6 +1214,8 @@ let _effInfoPoste = null;
                     populateFilters();
                     updateMatchSelection();
                     showDataLoaded();
+                    if (typeof buildPmMatchSelector === 'function') buildPmMatchSelector();
+                    if (typeof isPlayerMode === 'function' && isPlayerMode() && typeof pmTab === 'function') pmTab('fiche');
 
                     const dateStr = new Date().toLocaleDateString('fr-FR');
                     try {
@@ -1243,6 +1262,8 @@ let _effInfoPoste = null;
                 populateFilters();
                 updateMatchSelection();
                 showDataLoaded();
+                if (typeof buildPmMatchSelector === 'function') buildPmMatchSelector();
+                if (typeof isPlayerMode === 'function' && isPlayerMode() && typeof pmTab === 'function') pmTab('fiche');
                 updateImportUI(filename, date);
             } catch(e) {
                 localStorage.removeItem('fenix_data');
@@ -2825,5 +2846,96 @@ let _effInfoPoste = null;
 
     <!-- Zone d'impression fiche joueur -->
     <div id="joueur-print-zone"></div>
+
+    <!-- ── MODE JOUEUR ── barre de navigation ─────────────────────────────── -->
+    <div id="pm-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:1100;
+         background:#0A2463;color:white;height:56px;align-items:center;
+         padding:0 20px;gap:16px;box-shadow:0 2px 8px rgba(0,0,0,.3)">
+        <div style="display:flex;align-items:center;gap:10px;flex:1">
+            <img src="favicon.png" style="width:32px;height:32px;border-radius:50%">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px">FENIX Stats</span>
+            <span style="background:rgba(255,255,255,.15);border-radius:20px;padding:2px 12px;
+                  font-size:0.78rem;font-weight:600" id="pm-player-name"></span>
+        </div>
+        <button class="pm-tab-btn active" data-tab="fiche" onclick="pmTab('fiche')"
+                style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 18px;
+                       border-radius:20px;cursor:pointer;font-weight:600;font-size:0.85rem">
+            👤 Ma Fiche
+        </button>
+        <button class="pm-tab-btn" data-tab="match" onclick="pmTab('match')"
+                style="background:transparent;border:1.5px solid rgba(255,255,255,.4);color:white;
+                       padding:6px 18px;border-radius:20px;cursor:pointer;font-weight:600;font-size:0.85rem">
+            📊 Stats Match
+        </button>
+        <button onclick="playerLogout()"
+                style="background:rgba(239,68,68,.2);border:1px solid #EF4444;color:#FCA5A5;
+                       padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.8rem;margin-left:8px">
+            🚪 Déconnexion
+        </button>
+    </div>
+
+    <!-- ── MODE JOUEUR ── page stats match ────────────────────────────────── -->
+    <div id="pm-match-page" style="display:none;padding:76px 24px 24px;max-width:1100px;margin:0 auto">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#0A2463;letter-spacing:2px">
+                🏆 STATS DU MATCH
+            </span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                <label style="font-size:0.8rem;font-weight:600;color:#64748B">FILTRER PAR RENCONTRE</label>
+                <select id="pm-match-sel" onchange="renderPlayerMatchStats()"
+                        style="border:1px solid #E2E8F0;border-radius:8px;padding:6px 12px;
+                               font-size:0.85rem;color:#1E293B;background:white">
+                    <option value="">Tous les matchs</option>
+                </select>
+            </div>
+        </div>
+        <div id="pm-match-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"></div>
+    </div>
+
+    <!-- ── STAFF ── modal gestion comptes joueurs ──────────────────────────── -->
+    <div id="pa-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+         z-index:2000;align-items:center;justify-content:center">
+        <div style="background:white;border-radius:16px;padding:28px;width:480px;max-width:95vw;
+                    max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                <h2 style="margin:0;font-family:'Bebas Neue',sans-serif;font-size:1.3rem;
+                           color:#0A2463;letter-spacing:1.5px">🔑 COMPTES JOUEURS</h2>
+                <button onclick="closePlayerAccountsModal()"
+                        style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748B">✕</button>
+            </div>
+            <!-- Formulaire ajout -->
+            <div style="background:#F8FAFC;border-radius:10px;padding:16px;margin-bottom:20px">
+                <div style="font-weight:700;font-size:0.8rem;color:#64748B;margin-bottom:10px;letter-spacing:1px">
+                    AJOUTER UN COMPTE
+                </div>
+                <select id="pa-nom-sel" style="width:100%;border:1px solid #E2E8F0;border-radius:8px;
+                               padding:8px 12px;margin-bottom:10px;font-size:0.9rem">
+                    <option value="">-- Choisir un joueur --</option>
+                </select>
+                <input id="pa-pwd" type="text" placeholder="Mot de passe du joueur"
+                       style="width:100%;border:1px solid #E2E8F0;border-radius:8px;padding:8px 12px;
+                              font-size:0.9rem;box-sizing:border-box;margin-bottom:10px">
+                <button onclick="savePlayerAccount()"
+                        style="width:100%;background:#0A2463;color:white;border:none;border-radius:8px;
+                               padding:10px;font-weight:700;cursor:pointer;font-size:0.9rem">
+                    ✅ CRÉER LE COMPTE
+                </button>
+            </div>
+            <!-- Liste comptes -->
+            <div style="font-weight:700;font-size:0.8rem;color:#64748B;margin-bottom:10px;letter-spacing:1px">
+                COMPTES EXISTANTS
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+                <thead>
+                    <tr style="background:#F1F5F9">
+                        <th style="padding:8px 10px;text-align:left;color:#64748B;font-weight:600">JOUEUR</th>
+                        <th style="padding:8px 10px;text-align:left;color:#64748B;font-weight:600">MOT DE PASSE</th>
+                        <th style="padding:8px 10px"></th>
+                    </tr>
+                </thead>
+                <tbody id="pa-accounts-list"></tbody>
+            </table>
+        </div>
+    </div>
 </body>
 </html>
